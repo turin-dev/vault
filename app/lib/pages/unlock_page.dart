@@ -1,7 +1,11 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
 import '../src/rust/api/vault.dart';
+import '../theme.dart';
 import '../widgets.dart';
 import 'home_page.dart';
 
@@ -21,6 +25,11 @@ class _UnlockPageState extends State<UnlockPage> {
   bool _obscure = true;
   String? _error;
 
+  // 실패 시 지수 백오프 — 로컬 무차별 대입 억제
+  int _failCount = 0;
+  DateTime? _retryAt;
+  Timer? _countdown;
+
   @override
   void initState() {
     super.initState();
@@ -30,18 +39,40 @@ class _UnlockPageState extends State<UnlockPage> {
 
   @override
   void dispose() {
+    _countdown?.cancel();
     _password.dispose();
     _confirm.dispose();
     super.dispose();
   }
 
+  int get _retrySeconds {
+    final at = _retryAt;
+    if (at == null) return 0;
+    final left = at.difference(DateTime.now()).inSeconds;
+    return left > 0 ? left : 0;
+  }
+
+  void _applyBackoff() {
+    _failCount++;
+    if (_failCount >= 3) {
+      final secs = math.min(30, math.pow(2, _failCount - 2).toInt());
+      _retryAt = DateTime.now().add(Duration(seconds: secs));
+      _countdown?.cancel();
+      _countdown = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (_retrySeconds == 0) t.cancel();
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
   Future<void> _submit() async {
+    if (_retrySeconds > 0) return;
     final create = !(_vaultExists ?? true);
     final pw = _password.text;
     if (pw.isEmpty) return;
     if (create) {
-      if (pw.length < 8) {
-        setState(() => _error = '마스터 비밀번호는 8자 이상이어야 합니다');
+      if (pw.length < 10) {
+        setState(() => _error = '마스터 비밀번호는 10자 이상이어야 합니다');
         return;
       }
       if (pw != _confirm.text) {
@@ -63,41 +94,31 @@ class _UnlockPageState extends State<UnlockPage> {
       Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const HomePage()));
     } catch (e) {
+      _applyBackoff();
       setState(() {
         _busy = false;
-        _error = '$e'.replaceFirst('AnyhowException(', '').replaceFirst(RegExp(r'\)$'), '');
+        _error = '$e'
+            .replaceFirst('AnyhowException(', '')
+            .replaceFirst(RegExp(r'\)$'), '');
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final exists = _vaultExists;
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [scheme.primaryContainer, scheme.surface],
-          ),
-        ),
+      body: GlowBackdrop(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(28),
-                  child: exists == null
-                      ? const SizedBox(
-                          height: 200,
-                          child: Center(child: CircularProgressIndicator()))
-                      : _form(context, create: !exists),
-                ),
-              ),
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: exists == null
+                  ? const SizedBox(
+                      height: 220,
+                      child: Center(child: CircularProgressIndicator()))
+                  : _form(context, create: !exists),
             ),
           ),
         ),
@@ -106,27 +127,49 @@ class _UnlockPageState extends State<UnlockPage> {
   }
 
   Widget _form(BuildContext context, {required bool create}) {
-    final scheme = Theme.of(context).colorScheme;
+    final retry = _retrySeconds;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(Icons.lock_rounded, size: 56, color: scheme.primary),
-        const SizedBox(height: 12),
-        Text('금고',
-            textAlign: TextAlign.center,
-            style: Theme.of(context)
-                .textTheme
-                .headlineMedium
-                ?.copyWith(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 4),
-        Text(
-          create ? '새 금고를 만듭니다. 마스터 비밀번호는 복구할 수 없으니 잊지 마세요.' : '마스터 비밀번호를 입력하세요',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant),
+        // 로고
+        Center(
+          child: Container(
+            width: 76,
+            height: 76,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [G.mint, G.mintDeep],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: G.mint.withValues(alpha: 0.35),
+                  blurRadius: 28,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.shield_rounded, size: 40, color: G.onMint),
+          ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
+        const Text('금고',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            )),
+        const SizedBox(height: 6),
+        Text(
+          create ? '새 금고를 만듭니다.\n마스터 비밀번호는 복구할 수 없습니다.' : '마스터 비밀번호로 잠금을 해제하세요',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: G.sub, fontSize: 14, height: 1.5),
+        ),
+        const SizedBox(height: 28),
         TextField(
           controller: _password,
           obscureText: _obscure,
@@ -138,16 +181,17 @@ class _UnlockPageState extends State<UnlockPage> {
             labelText: '마스터 비밀번호',
             prefixIcon: const Icon(Icons.key_rounded),
             suffixIcon: IconButton(
-              icon: Icon(
-                  _obscure ? Icons.visibility_rounded : Icons.visibility_off_rounded),
+              icon: Icon(_obscure
+                  ? Icons.visibility_rounded
+                  : Icons.visibility_off_rounded),
               onPressed: () => setState(() => _obscure = !_obscure),
             ),
           ),
         ),
         if (create) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           StrengthBar(password: _password.text),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           TextField(
             controller: _confirm,
             obscureText: true,
@@ -160,27 +204,80 @@ class _UnlockPageState extends State<UnlockPage> {
           ),
         ],
         if (_error != null) ...[
-          const SizedBox(height: 12),
-          Text(_error!,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: scheme.error)),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: G.danger.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: G.danger.withValues(alpha: 0.35)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.error_outline_rounded,
+                  size: 18, color: G.danger),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(_error!,
+                    style: const TextStyle(color: G.danger, fontSize: 13)),
+              ),
+            ]),
+          ),
         ],
-        const SizedBox(height: 20),
+        const SizedBox(height: 22),
         FilledButton.icon(
-          onPressed: _busy ? null : _submit,
+          onPressed: (_busy || retry > 0) ? null : _submit,
           icon: _busy
               ? const SizedBox(
                   width: 18,
                   height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2))
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: G.onMint))
               : Icon(create ? Icons.add_rounded : Icons.lock_open_rounded),
-          label: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Text(create ? '금고 만들기' : '잠금 해제',
-                style: const TextStyle(fontSize: 16)),
-          ),
+          label: Text(retry > 0
+              ? '다시 시도까지 $retry초'
+              : create
+                  ? '금고 만들기'
+                  : '잠금 해제'),
+        ),
+        const SizedBox(height: 26),
+        // 보안 스펙
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: const [
+            _SpecChip(icon: Icons.memory_rounded, label: 'Argon2id 64MiB'),
+            _SpecChip(icon: Icons.enhanced_encryption_rounded, label: 'XChaCha20-Poly1305'),
+            _SpecChip(icon: Icons.visibility_off_rounded, label: 'Zero-knowledge'),
+          ],
         ),
       ],
+    );
+  }
+}
+
+class _SpecChip extends StatelessWidget {
+  const _SpecChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: G.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: G.border),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 13, color: G.mint),
+        const SizedBox(width: 6),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 11.5, color: G.sub, fontWeight: FontWeight.w600)),
+      ]),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../src/rust/api/vault.dart';
+import '../theme.dart';
 import '../widgets.dart';
 
 /// 비밀번호 생성기. pickMode면 "사용" 버튼으로 결과를 pop해서 돌려준다.
@@ -47,25 +48,33 @@ class _GeneratorPageState extends State<GeneratorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('비밀번호 생성기')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            color: scheme.primaryContainer,
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: G.mint.withValues(alpha: 0.30)),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [G.mint.withValues(alpha: 0.07), G.surface],
+              ),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(children: [
                 SelectableText(
                   _password,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 20,
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w600,
-                    color: scheme.onPrimaryContainer,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                    color: G.mint,
+                    height: 1.5,
                   ),
                 ),
                 const SizedBox(height: 16),

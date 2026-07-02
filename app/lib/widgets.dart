@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'src/rust/api/vault.dart';
+import 'theme.dart';
 
 /// 민감한 값 복사 — 30초 뒤 클립보드에 같은 값이 남아 있으면 지운다.
 Future<void> copySensitive(
@@ -19,8 +20,11 @@ Future<void> copySensitive(
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(SnackBar(
-        content: Text('$label 복사됨 · 30초 후 클립보드에서 삭제'),
-        behavior: SnackBarBehavior.floating,
+        content: Row(children: [
+          const Icon(Icons.check_circle_rounded, size: 18, color: G.mint),
+          const SizedBox(width: 10),
+          Expanded(child: Text('$label 복사됨 · 30초 후 자동 삭제')),
+        ]),
         duration: const Duration(seconds: 2),
       ));
   }
@@ -28,14 +32,14 @@ Future<void> copySensitive(
 
 const strengthLabels = ['매우 약함', '약함', '보통', '강함', '매우 강함'];
 const strengthColors = [
-  Color(0xFFE53935),
-  Color(0xFFFB8C00),
-  Color(0xFFFDD835),
-  Color(0xFF7CB342),
-  Color(0xFF2E7D32),
+  Color(0xFFFF6B6B),
+  Color(0xFFFF9E6B),
+  Color(0xFFFFC24B),
+  Color(0xFF9BE05A),
+  Color(0xFF2EE6A8),
 ];
 
-/// 실시간 비밀번호 강도 막대. 입력이 바뀔 때마다 Rust zxcvbn 호출.
+/// 실시간 비밀번호 강도 막대 — 5칸 세그먼트.
 class StrengthBar extends StatefulWidget {
   const StrengthBar({super.key, required this.password});
 
@@ -72,33 +76,29 @@ class _StrengthBarState extends State<StrengthBar> {
   @override
   Widget build(BuildContext context) {
     final s = _strength;
-    if (s == null) return const SizedBox(height: 22);
+    if (s == null) return const SizedBox(height: 20);
     final score = s.score.clamp(0, 4);
+    final color = strengthColors[score];
     return SizedBox(
-      height: 22,
+      height: 20,
       child: Row(children: [
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(end: (score + 1) / 5),
-              duration: const Duration(milliseconds: 300),
-              builder: (_, v, __) => LinearProgressIndicator(
-                value: v,
-                minHeight: 6,
-                backgroundColor:
-                    Theme.of(context).colorScheme.surfaceContainerHighest,
-                color: strengthColors[score],
+        for (var i = 0; i < 5; i++) ...[
+          Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              height: 5,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(3),
+                color: i <= score ? color : G.surfaceHi,
               ),
             ),
           ),
-        ),
+          if (i < 4) const SizedBox(width: 4),
+        ],
         const SizedBox(width: 12),
         Text(strengthLabels[score],
             style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: strengthColors[score])),
+                fontSize: 12, fontWeight: FontWeight.w700, color: color)),
       ]),
     );
   }
@@ -145,7 +145,7 @@ class _TotpViewState extends State<TotpView> {
   Widget build(BuildContext context) {
     if (_error != null) {
       return Text('TOTP 오류: $_error',
-          style: TextStyle(color: Theme.of(context).colorScheme.error));
+          style: const TextStyle(color: G.danger, fontSize: 13));
     }
     final t = _totp;
     if (t == null) return const SizedBox(height: 48);
@@ -155,25 +155,35 @@ class _TotpViewState extends State<TotpView> {
         : code;
     final remaining = t.secondsRemaining.toInt();
     final period = t.period.toInt();
+    final urgent = remaining <= 5;
     return Row(children: [
       Text(grouped,
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontFeatures: const [FontFeature.tabularFigures()],
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2)),
+          style: TextStyle(
+            fontSize: 30,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 3,
+            color: urgent ? G.amber : G.mint,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          )),
       const SizedBox(width: 16),
       SizedBox(
-        width: 32,
-        height: 32,
+        width: 34,
+        height: 34,
         child: Stack(alignment: Alignment.center, children: [
-          CircularProgressIndicator(
-            value: remaining / period,
-            strokeWidth: 3,
-            color: remaining <= 5
-                ? Theme.of(context).colorScheme.error
-                : Theme.of(context).colorScheme.primary,
+          TweenAnimationBuilder<double>(
+            tween: Tween(end: remaining / period),
+            duration: const Duration(milliseconds: 400),
+            builder: (_, v, __) => CircularProgressIndicator(
+              value: v,
+              strokeWidth: 3.5,
+              strokeCap: StrokeCap.round,
+              backgroundColor: G.surfaceHi,
+              color: urgent ? G.amber : G.mint,
+            ),
           ),
-          Text('$remaining', style: const TextStyle(fontSize: 11)),
+          Text('$remaining',
+              style: const TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.w700, color: G.sub)),
         ]),
       ),
       const Spacer(),

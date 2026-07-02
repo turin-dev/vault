@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../src/rust/api/vault.dart';
+import '../theme.dart';
 import '../widgets.dart';
 import 'entry_edit_page.dart';
 
@@ -37,14 +38,20 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('항목 삭제'),
-        content: Text('"${_entry?.title}"을(를) 삭제할까요?'),
+        content: Text('"${_entry?.title}"을(를) 삭제할까요?',
+            style: const TextStyle(color: G.sub)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('취소')),
-          FilledButton.tonal(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('삭제')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: G.danger,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(0, 44)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('삭제'),
+          ),
         ],
       ),
     );
@@ -77,15 +84,24 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
   @override
   Widget build(BuildContext context) {
     final e = _entry;
-    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text(e?.title ?? ''),
+        title: e == null
+            ? const SizedBox.shrink()
+            : Row(mainAxisSize: MainAxisSize.min, children: [
+                Monogram(seed: e.title, size: 32),
+                const SizedBox(width: 12),
+                Flexible(
+                    child:
+                        Text(e.title, overflow: TextOverflow.ellipsis)),
+              ]),
         actions: [
           IconButton(
             icon: Icon(
-              e?.favorite == true ? Icons.star_rounded : Icons.star_outline_rounded,
-              color: e?.favorite == true ? Colors.amber.shade600 : null,
+              e?.favorite == true
+                  ? Icons.star_rounded
+                  : Icons.star_outline_rounded,
+              color: e?.favorite == true ? G.amber : null,
             ),
             tooltip: '즐겨찾기',
             onPressed: _toggleFavorite,
@@ -95,6 +111,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
             tooltip: '삭제',
             onPressed: _delete,
           ),
+          const SizedBox(width: 4),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -109,7 +126,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
       body: e == null
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
               children: [
                 if (e.username.isNotEmpty)
                   _fieldCard(
@@ -122,7 +139,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                   icon: Icons.key_rounded,
                   label: '비밀번호',
                   value: _showPassword ? e.password : '••••••••••••',
-                  monospace: _showPassword,
+                  monospace: true,
                   extra: IconButton(
                     icon: Icon(_showPassword
                         ? Icons.visibility_off_rounded
@@ -132,24 +149,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                   ),
                   onCopy: () => copySensitive(context, '비밀번호', e.password),
                 ),
-                if (e.totp.isNotEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('일회용 코드 (TOTP)',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelMedium
-                                  ?.copyWith(color: scheme.onSurfaceVariant)),
-                          const SizedBox(height: 4),
-                          TotpView(secret: e.totp),
-                        ],
-                      ),
-                    ),
-                  ),
+                if (e.totp.isNotEmpty) _totpCard(e),
                 if (e.url.isNotEmpty)
                   _fieldCard(
                     icon: Icons.link_rounded,
@@ -159,46 +159,83 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                   ),
                 if (e.tags.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.fromLTRB(4, 10, 4, 4),
                     child: Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: e.tags
                           .map((t) => Chip(
-                              label: Text(t),
+                              label: Text('# $t'),
                               visualDensity: VisualDensity.compact))
                           .toList(),
                     ),
                   ),
                 if (e.notes.isNotEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('메모',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelMedium
-                                  ?.copyWith(color: scheme.onSurfaceVariant)),
-                          const SizedBox(height: 4),
-                          SelectableText(e.notes),
-                        ],
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('메모',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: G.faint,
+                                    letterSpacing: 0.6)),
+                            const SizedBox(height: 8),
+                            SelectableText(e.notes,
+                                style: const TextStyle(height: 1.6)),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Text(
                   '생성 ${_fmt(e.createdAt)} · 수정 ${_fmt(e.updatedAt)}',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: scheme.outline),
+                  style: const TextStyle(fontSize: 12, color: G.faint),
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _totpCard(EntryDto e) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: G.mint.withValues(alpha: 0.30)),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              G.mint.withValues(alpha: 0.07),
+              G.surface,
+            ],
+          ),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Row(children: [
+            Icon(Icons.timer_rounded, size: 14, color: G.mint),
+            SizedBox(width: 6),
+            Text('일회용 코드 · TOTP',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: G.mint,
+                    letterSpacing: 0.6)),
+          ]),
+          const SizedBox(height: 6),
+          TotpView(secret: e.totp),
+        ]),
+      ),
     );
   }
 
@@ -215,29 +252,48 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
     Widget? extra,
     bool monospace = false,
   }) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      child: ListTile(
-        leading: Icon(icon, color: scheme.primary),
-        title: Text(label,
-            style: Theme.of(context)
-                .textTheme
-                .labelMedium
-                ?.copyWith(color: scheme.onSurfaceVariant)),
-        subtitle: Text(
-          value,
-          style: TextStyle(
-            fontSize: 15,
-            color: scheme.onSurface,
-            fontFamily: monospace ? 'monospace' : null,
-          ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+          child: Row(children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: G.surfaceHi,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 20, color: G.mint),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child:
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(label,
+                    style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: G.faint,
+                        letterSpacing: 0.6)),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: monospace ? 0.8 : 0,
+                  ),
+                ),
+              ]),
+            ),
             if (extra != null) extra,
-            IconButton(icon: const Icon(Icons.copy_rounded), onPressed: onCopy),
-          ],
+            IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 20),
+                onPressed: onCopy),
+          ]),
         ),
       ),
     );

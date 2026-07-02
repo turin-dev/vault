@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../src/rust/api/vault.dart';
+import '../theme.dart';
 import '../widgets.dart';
 import 'entry_detail_page.dart';
 import 'entry_edit_page.dart';
@@ -35,7 +36,6 @@ class _HomePageState extends State<HomePage> {
         });
       }
     } catch (_) {
-      // 잠금 상태에서 호출됨 — 잠금 화면으로
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const UnlockPage()),
@@ -65,113 +65,91 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final items = _filtered;
     final favorites = items.where((e) => e.favorite).toList();
     final others = items.where((e) => !e.favorite).toList();
-    final ordered = [...favorites, ...others];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('금고', style: TextStyle(fontWeight: FontWeight.w800)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.auto_awesome_rounded),
-            tooltip: '비밀번호 생성기',
-            onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const GeneratorPage())),
+      body: SafeArea(
+        child: Column(children: [
+          // 헤더
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+            child: Row(children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [G.mint, G.mintDeep],
+                  ),
+                ),
+                child:
+                    const Icon(Icons.shield_rounded, size: 22, color: G.onMint),
+              ),
+              const SizedBox(width: 12),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('금고',
+                    style: TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3)),
+                Text('${_entries.length}개 항목 · 잠금 해제됨',
+                    style: const TextStyle(fontSize: 12, color: G.faint)),
+              ]),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.auto_awesome_rounded),
+                tooltip: '비밀번호 생성기',
+                onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const GeneratorPage())),
+              ),
+              IconButton(
+                icon: const Icon(Icons.lock_rounded),
+                tooltip: '잠금',
+                onPressed: _lock,
+              ),
+            ]),
           ),
-          IconButton(
-            icon: const Icon(Icons.lock_rounded),
-            tooltip: '잠금',
-            onPressed: _lock,
-          ),
-          const SizedBox(width: 4),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(64),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: SearchBar(
-              hintText: '검색 (제목, 아이디, URL, 태그)',
-              leading: const Icon(Icons.search_rounded),
-              elevation: const WidgetStatePropertyAll(0),
+          // 검색
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
+            child: TextField(
               onChanged: (v) => setState(() => _query = v),
+              decoration: const InputDecoration(
+                hintText: '검색 — 제목, 아이디, URL, 태그',
+                prefixIcon: Icon(Icons.search_rounded),
+                isDense: true,
+              ),
             ),
           ),
-        ),
+          // 목록
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : (favorites.isEmpty && others.isEmpty)
+                    ? _empty()
+                    : ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                        children: [
+                          if (favorites.isNotEmpty) ...[
+                            _sectionLabel('즐겨찾기', favorites.length),
+                            ...favorites.map(_tile),
+                            const SizedBox(height: 14),
+                          ],
+                          if (others.isNotEmpty) ...[
+                            if (favorites.isNotEmpty)
+                              _sectionLabel('전체', others.length),
+                            ...others.map(_tile),
+                          ],
+                        ],
+                      ),
+          ),
+        ]),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ordered.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.inbox_rounded,
-                          size: 64, color: scheme.outlineVariant),
-                      const SizedBox(height: 12),
-                      Text(
-                        _query.isEmpty ? '아직 항목이 없습니다.\n+ 버튼으로 추가하세요.' : '검색 결과 없음',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: scheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 88),
-                  itemCount: ordered.length,
-                  itemBuilder: (context, i) {
-                    final e = ordered[i];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      child: ListTile(
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16)),
-                        leading: CircleAvatar(
-                          backgroundColor: scheme.primaryContainer,
-                          foregroundColor: scheme.onPrimaryContainer,
-                          child: Text(
-                              e.title.isEmpty
-                                  ? '?'
-                                  : e.title.characters.first.toUpperCase(),
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700)),
-                        ),
-                        title: Row(children: [
-                          Flexible(
-                              child: Text(e.title,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600))),
-                          if (e.favorite) ...[
-                            const SizedBox(width: 6),
-                            Icon(Icons.star_rounded,
-                                size: 16, color: Colors.amber.shade600),
-                          ],
-                          if (e.totp.isNotEmpty) ...[
-                            const SizedBox(width: 6),
-                            Icon(Icons.timer_rounded,
-                                size: 15, color: scheme.outline),
-                          ],
-                        ]),
-                        subtitle: e.username.isEmpty ? null : Text(e.username),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.copy_rounded),
-                          tooltip: '비밀번호 복사',
-                          onPressed: () =>
-                              copySensitive(context, '비밀번호', e.password),
-                        ),
-                        onTap: () async {
-                          await Navigator.of(context).push(MaterialPageRoute(
-                              builder: (_) => EntryDetailPage(id: e.id)));
-                          _reload();
-                        },
-                      ),
-                    );
-                  },
-                ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add_rounded),
         label: const Text('추가'),
@@ -180,6 +158,116 @@ class _HomePageState extends State<HomePage> {
               MaterialPageRoute(builder: (_) => const EntryEditPage()));
           if (saved == true) _reload();
         },
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String label, int count) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+      child: Row(children: [
+        Text(label.toUpperCase(),
+            style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: G.faint,
+                letterSpacing: 1.2)),
+        const SizedBox(width: 8),
+        Text('$count',
+            style: const TextStyle(
+                fontSize: 11.5, fontWeight: FontWeight.w700, color: G.mint)),
+      ]),
+    );
+  }
+
+  Widget _empty() {
+    return Center(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: G.surface,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: G.border),
+          ),
+          child: const Icon(Icons.inbox_rounded, size: 34, color: G.faint),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          _query.isEmpty ? '아직 항목이 없습니다\n+ 버튼으로 첫 항목을 추가하세요' : '검색 결과가 없습니다',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: G.sub, height: 1.6),
+        ),
+      ]),
+    );
+  }
+
+  Widget _tile(EntryDto e) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Card(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () async {
+            await Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => EntryDetailPage(id: e.id)));
+            _reload();
+          },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
+            child: Row(children: [
+              Monogram(seed: e.title),
+              const SizedBox(width: 14),
+              Expanded(
+                child:
+                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Flexible(
+                      child: Text(e.title,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 15.5, fontWeight: FontWeight.w700)),
+                    ),
+                    if (e.favorite) ...[
+                      const SizedBox(width: 6),
+                      const Icon(Icons.star_rounded, size: 15, color: G.amber),
+                    ],
+                    if (e.totp.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: G.mint.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text('2FA',
+                            style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: G.mint,
+                                letterSpacing: 0.5)),
+                      ),
+                    ],
+                  ]),
+                  if (e.username.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(e.username,
+                        overflow: TextOverflow.ellipsis,
+                        style:
+                            const TextStyle(fontSize: 13, color: G.sub)),
+                  ],
+                ]),
+              ),
+              IconButton(
+                icon: const Icon(Icons.copy_rounded, size: 20),
+                tooltip: '비밀번호 복사',
+                onPressed: () => copySensitive(context, '비밀번호', e.password),
+              ),
+            ]),
+          ),
+        ),
       ),
     );
   }
