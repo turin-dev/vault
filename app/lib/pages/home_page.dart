@@ -6,6 +6,8 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'entry_detail_page.dart';
 import 'entry_edit_page.dart';
+import 'archive_page.dart';
+import 'data_page.dart';
 import 'generator_page.dart';
 import 'security_page.dart';
 import 'sync_page.dart';
@@ -147,10 +149,48 @@ class _HomePageState extends State<HomePage> {
                   _reload();
                 },
               ),
-              IconButton(
-                icon: const Icon(Icons.lock_rounded),
-                tooltip: '잠금',
-                onPressed: _lock,
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded, color: G.sub),
+                color: G.surfaceHi,
+                onSelected: (v) async {
+                  if (v == 'lock') {
+                    _lock();
+                  } else if (v == 'archive') {
+                    await Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const ArchivePage()));
+                    _reload();
+                  } else if (v == 'data') {
+                    await Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const DataPage()));
+                    _reload();
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'archive',
+                    child: ListTile(
+                      leading: Icon(Icons.archive_outlined),
+                      title: Text('보관함'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'data',
+                    child: ListTile(
+                      leading: Icon(Icons.import_export_rounded),
+                      title: Text('가져오기 / 내보내기'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'lock',
+                    child: ListTile(
+                      leading: Icon(Icons.lock_rounded),
+                      title: Text('잠금'),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
               ),
             ]),
           ),

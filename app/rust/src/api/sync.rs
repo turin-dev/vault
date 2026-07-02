@@ -273,6 +273,10 @@ mod tests {
             favorite: false,
             created_at: 0,
             updated_at: 0,
+            item_type: "login".into(),
+            custom_fields: vec![],
+            password_history: vec![],
+            archived: false,
         }
     }
 

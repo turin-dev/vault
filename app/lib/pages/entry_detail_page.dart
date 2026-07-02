@@ -17,6 +17,7 @@ class EntryDetailPage extends StatefulWidget {
 class _EntryDetailPageState extends State<EntryDetailPage> {
   EntryDto? _entry;
   bool _showPassword = false;
+  final Set<int> _revealedFields = {};
 
   @override
   void initState() {
@@ -61,6 +62,13 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
     }
   }
 
+  Future<void> _toggleArchive() async {
+    final e = _entry;
+    if (e == null) return;
+    await setArchived(id: e.id, archived: !e.archived);
+    if (mounted) Navigator.of(context).pop();
+  }
+
   Future<void> _toggleFavorite() async {
     final e = _entry;
     if (e == null) return;
@@ -77,6 +85,10 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
       favorite: !e.favorite,
       createdAt: e.createdAt,
       updatedAt: e.updatedAt,
+      itemType: e.itemType,
+      customFields: e.customFields,
+      passwordHistory: e.passwordHistory,
+      archived: e.archived,
     ));
     _reload();
   }
@@ -107,6 +119,13 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
             onPressed: _toggleFavorite,
           ),
           IconButton(
+            icon: Icon(e?.archived == true
+                ? Icons.unarchive_rounded
+                : Icons.archive_outlined),
+            tooltip: e?.archived == true ? '보관 해제' : '보관함으로',
+            onPressed: _toggleArchive,
+          ),
+          IconButton(
             icon: const Icon(Icons.delete_outline_rounded),
             tooltip: '삭제',
             onPressed: _delete,
@@ -135,20 +154,21 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                     value: e.username,
                     onCopy: () => copySensitive(context, '아이디', e.username),
                   ),
-                _fieldCard(
-                  icon: Icons.key_rounded,
-                  label: '비밀번호',
-                  value: _showPassword ? e.password : '••••••••••••',
-                  monospace: true,
-                  extra: IconButton(
-                    icon: Icon(_showPassword
-                        ? Icons.visibility_off_rounded
-                        : Icons.visibility_rounded),
-                    onPressed: () =>
-                        setState(() => _showPassword = !_showPassword),
+                if (e.password.isNotEmpty)
+                  _fieldCard(
+                    icon: Icons.key_rounded,
+                    label: e.itemType == 'card' ? 'CVC / PIN' : '비밀번호',
+                    value: _showPassword ? e.password : '••••••••••••',
+                    monospace: true,
+                    extra: IconButton(
+                      icon: Icon(_showPassword
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded),
+                      onPressed: () =>
+                          setState(() => _showPassword = !_showPassword),
+                    ),
+                    onCopy: () => copySensitive(context, '비밀번호', e.password),
                   ),
-                  onCopy: () => copySensitive(context, '비밀번호', e.password),
-                ),
                 if (e.totp.isNotEmpty) _totpCard(e),
                 if (e.url.isNotEmpty)
                   _fieldCard(
@@ -157,6 +177,9 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                     value: e.url,
                     onCopy: () => copySensitive(context, 'URL', e.url),
                   ),
+                // 커스텀 필드
+                ...e.customFields.map((f) => _customFieldCard(f)),
+                if (e.passwordHistory.isNotEmpty) _historyCard(e),
                 if (e.tags.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(4, 10, 4, 4),
@@ -201,6 +224,95 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _customFieldCard(CustomFieldDto f) {
+    final idx = _entry!.customFields.indexOf(f);
+    final revealed = !f.hidden || _revealedFields.contains(idx);
+    return _fieldCard(
+      icon: f.hidden ? Icons.password_rounded : Icons.notes_rounded,
+      label: f.label.isEmpty ? '필드' : f.label,
+      value: revealed ? f.value : '••••••••••',
+      monospace: f.hidden,
+      extra: f.hidden
+          ? IconButton(
+              icon: Icon(revealed
+                  ? Icons.visibility_off_rounded
+                  : Icons.visibility_rounded),
+              onPressed: () => setState(() {
+                if (revealed) {
+                  _revealedFields.remove(idx);
+                } else {
+                  _revealedFields.add(idx);
+                }
+              }),
+            )
+          : null,
+      onCopy: () => copySensitive(context, f.label, f.value),
+    );
+  }
+
+  Widget _historyCard(EntryDto e) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Card(
+        child: ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+                color: G.surfaceHi, borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.history_rounded, size: 20, color: G.sub),
+          ),
+          title: const Text('비밀번호 이력',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          subtitle: Text('이전 비밀번호 ${e.passwordHistory.length}개',
+              style: const TextStyle(fontSize: 12, color: G.faint)),
+          trailing: const Icon(Icons.chevron_right_rounded, color: G.faint),
+          onTap: () => _showHistory(e),
+        ),
+      ),
+    );
+  }
+
+  void _showHistory(EntryDto e) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: G.surfaceHi,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Text('비밀번호 이력',
+                  style:
+                      TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+            ),
+            ...e.passwordHistory.map((h) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: SelectableText(h.password,
+                        style: const TextStyle(
+                            fontSize: 14, letterSpacing: 0.5)),
+                    subtitle: Text(_fmt(h.changedAt),
+                        style:
+                            const TextStyle(fontSize: 12, color: G.faint)),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 20),
+                      onPressed: () =>
+                          copySensitive(ctx, '이전 비밀번호', h.password),
+                    ),
+                  ),
+                )),
+          ],
+        ),
+      ),
     );
   }
 

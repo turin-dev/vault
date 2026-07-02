@@ -42,6 +42,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   GenOptionsDto dco_decode_box_autoadd_gen_options_dto(dynamic raw);
 
   @protected
+  PassphraseOptionsDto dco_decode_box_autoadd_passphrase_options_dto(
+    dynamic raw,
+  );
+
+  @protected
   SyncConfigDto dco_decode_box_autoadd_sync_config_dto(dynamic raw);
 
   @protected
@@ -49,6 +54,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BreachReportDto dco_decode_breach_report_dto(dynamic raw);
+
+  @protected
+  CustomFieldDto dco_decode_custom_field_dto(dynamic raw);
 
   @protected
   EntryDto dco_decode_entry_dto(dynamic raw);
@@ -69,7 +77,13 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<BreachHitDto> dco_decode_list_breach_hit_dto(dynamic raw);
 
   @protected
+  List<CustomFieldDto> dco_decode_list_custom_field_dto(dynamic raw);
+
+  @protected
   List<EntryDto> dco_decode_list_entry_dto(dynamic raw);
+
+  @protected
+  List<PasswordHistoryDto> dco_decode_list_password_history_dto(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
@@ -79,6 +93,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SyncConfigDto? dco_decode_opt_box_autoadd_sync_config_dto(dynamic raw);
+
+  @protected
+  PassphraseOptionsDto dco_decode_passphrase_options_dto(dynamic raw);
+
+  @protected
+  PasswordHistoryDto dco_decode_password_history_dto(dynamic raw);
 
   @protected
   ReuseGroupDto dco_decode_reuse_group_dto(dynamic raw);
@@ -134,6 +154,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  PassphraseOptionsDto sse_decode_box_autoadd_passphrase_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SyncConfigDto sse_decode_box_autoadd_sync_config_dto(
     SseDeserializer deserializer,
   );
@@ -143,6 +168,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   BreachReportDto sse_decode_breach_report_dto(SseDeserializer deserializer);
+
+  @protected
+  CustomFieldDto sse_decode_custom_field_dto(SseDeserializer deserializer);
 
   @protected
   EntryDto sse_decode_entry_dto(SseDeserializer deserializer);
@@ -167,7 +195,17 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  List<CustomFieldDto> sse_decode_list_custom_field_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<EntryDto> sse_decode_list_entry_dto(SseDeserializer deserializer);
+
+  @protected
+  List<PasswordHistoryDto> sse_decode_list_password_history_dto(
+    SseDeserializer deserializer,
+  );
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
@@ -179,6 +217,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SyncConfigDto? sse_decode_opt_box_autoadd_sync_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  PassphraseOptionsDto sse_decode_passphrase_options_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  PasswordHistoryDto sse_decode_password_history_dto(
     SseDeserializer deserializer,
   );
 
@@ -252,6 +300,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_passphrase_options_dto(
+    PassphraseOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_sync_config_dto(
     SyncConfigDto self,
     SseSerializer serializer,
@@ -263,6 +317,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_breach_report_dto(
     BreachReportDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_custom_field_dto(
+    CustomFieldDto self,
     SseSerializer serializer,
   );
 
@@ -291,7 +351,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_custom_field_dto(
+    List<CustomFieldDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_entry_dto(List<EntryDto> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_password_history_dto(
+    List<PasswordHistoryDto> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_prim_u_8_strict(
@@ -308,6 +380,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_sync_config_dto(
     SyncConfigDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_passphrase_options_dto(
+    PassphraseOptionsDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_password_history_dto(
+    PasswordHistoryDto self,
     SseSerializer serializer,
   );
 

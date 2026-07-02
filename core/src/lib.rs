@@ -12,12 +12,20 @@ pub mod crypto;
 pub mod error;
 pub mod generator;
 pub mod model;
+pub mod portable;
 pub mod storage;
 pub mod totp;
 pub mod vault;
 
 pub use audit::{audit, AuditEntryRef, AuditReport, ReuseGroup};
 pub use error::{CoreError, Result};
-pub use generator::{evaluate_strength, generate_password, GenOptions, Strength};
-pub use model::{EncryptedEntry, Entry, VaultHeader};
+pub use generator::{
+    evaluate_strength, generate_passphrase, generate_password, GenOptions, PassphraseOptions,
+    Strength,
+};
+pub use model::{
+    CustomField, EncryptedEntry, Entry, PasswordHistoryItem, VaultHeader, ITEM_CARD, ITEM_LOGIN,
+    ITEM_NOTE,
+};
+pub use portable::{parse_generic_csv, to_csv};
 pub use vault::Vault;

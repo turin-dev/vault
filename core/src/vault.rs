@@ -137,15 +137,52 @@ impl Vault {
         Ok(entry)
     }
 
+    /// 비밀번호 이력에 담을 최대 개수.
+    const MAX_HISTORY: usize = 25;
+
     pub fn update_entry(&self, mut entry: Entry) -> Result<Entry> {
-        let existing = self
+        let existing_enc = self
             .db
             .get_entry(&entry.id)?
             .ok_or_else(|| CoreError::EntryNotFound(entry.id.clone()))?;
+        let prev = self.decrypt_entry(&existing_enc)?;
+
+        // 비밀번호가 실제로 바뀌었으면 이전 값을 이력에 자동 보관
+        if !prev.password.is_empty() && prev.password != entry.password {
+            let mut history = entry.password_history.clone();
+            history.insert(
+                0,
+                crate::model::PasswordHistoryItem {
+                    password: prev.password.clone(),
+                    changed_at: prev.updated_at,
+                },
+            );
+            history.truncate(Self::MAX_HISTORY);
+            entry.password_history = history;
+        }
+
         entry.updated_at = now();
         // 로컬 수정은 서버 리비전을 유지 — 동기화 때 서버가 새 리비전 부여
-        self.write_entry(&entry, existing.revision)?;
+        self.write_entry(&entry, existing_enc.revision)?;
         Ok(entry)
+    }
+
+    /// 엔트리 목록을 일괄 추가 (가져오기). 추가된 개수 반환.
+    pub fn import_entries(&self, entries: Vec<Entry>) -> Result<u32> {
+        let mut count = 0;
+        for e in entries {
+            self.add_entry(e)?;
+            count += 1;
+        }
+        Ok(count)
+    }
+
+    /// 아카이브 토글.
+    pub fn set_archived(&self, id: &str, archived: bool) -> Result<()> {
+        let mut e = self.get_entry(id)?;
+        e.archived = archived;
+        self.update_entry(e)?;
+        Ok(())
     }
 
     /// 톰스톤 삭제 (동기화 전파를 위해 행 자체는 남긴다).
@@ -170,7 +207,17 @@ impl Vault {
         self.decrypt_entry(&enc)
     }
 
+    /// 활성(아카이브 아닌) 항목.
     pub fn list_entries(&self) -> Result<Vec<Entry>> {
+        Ok(self.all_live_entries()?.into_iter().filter(|e| !e.archived).collect())
+    }
+
+    /// 아카이브된 항목만.
+    pub fn list_archived(&self) -> Result<Vec<Entry>> {
+        Ok(self.all_live_entries()?.into_iter().filter(|e| e.archived).collect())
+    }
+
+    fn all_live_entries(&self) -> Result<Vec<Entry>> {
         let mut out = Vec::new();
         for enc in self.db.live_entries()? {
             out.push(self.decrypt_entry(&enc)?);
@@ -179,7 +226,7 @@ impl Vault {
         Ok(out)
     }
 
-    /// 잠금 해제된 모든 엔트리에 대해 보안 점검을 수행.
+    /// 잠금 해제된 활성 엔트리에 대해 보안 점검을 수행.
     pub fn audit(&self) -> Result<crate::audit::AuditReport> {
         let entries = self.list_entries()?;
         Ok(crate::audit::audit(&entries, now()))
@@ -273,6 +320,10 @@ mod tests {
             favorite: false,
             created_at: 0,
             updated_at: 0,
+            item_type: crate::model::ITEM_LOGIN.into(),
+            custom_fields: vec![],
+            password_history: vec![],
+            archived: false,
         }
     }
 

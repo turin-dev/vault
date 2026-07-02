@@ -21,7 +21,29 @@ pub struct VaultHeader {
     pub created_at: i64,
 }
 
-/// 로그인 항목 하나. 드롭 시 필드 메모리를 0으로 덮는다.
+/// 항목 종류. 문자열로 저장해 향후 종류 추가가 호환되게 한다.
+/// "login" | "note" | "card"
+pub const ITEM_LOGIN: &str = "login";
+pub const ITEM_NOTE: &str = "note";
+pub const ITEM_CARD: &str = "card";
+
+/// 사용자 정의 필드. hidden=true면 비밀번호처럼 가려서 표시.
+#[derive(Debug, Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop, PartialEq)]
+pub struct CustomField {
+    pub label: String,
+    pub value: String,
+    pub hidden: bool,
+}
+
+/// 비밀번호 변경 이력 한 건.
+#[derive(Debug, Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop, PartialEq)]
+pub struct PasswordHistoryItem {
+    pub password: String,
+    pub changed_at: i64,
+}
+
+/// 항목 하나. 드롭 시 필드 메모리를 0으로 덮는다.
+/// 새 필드는 모두 `#[serde(default)]` — 기존 볼트 JSON과 호환.
 #[derive(Debug, Clone, Serialize, Deserialize, Zeroize, ZeroizeOnDrop, PartialEq)]
 pub struct Entry {
     pub id: String,
@@ -36,6 +58,23 @@ pub struct Entry {
     pub favorite: bool,
     pub created_at: i64,
     pub updated_at: i64,
+
+    /// 항목 종류 (기본 "login")
+    #[serde(default = "default_item_type")]
+    pub item_type: String,
+    /// 사용자 정의 필드
+    #[serde(default)]
+    pub custom_fields: Vec<CustomField>,
+    /// 비밀번호 변경 이력 (최신이 앞)
+    #[serde(default)]
+    pub password_history: Vec<PasswordHistoryItem>,
+    /// 보관함(아카이브) 여부
+    #[serde(default)]
+    pub archived: bool,
+}
+
+fn default_item_type() -> String {
+    ITEM_LOGIN.to_string()
 }
 
 impl Entry {

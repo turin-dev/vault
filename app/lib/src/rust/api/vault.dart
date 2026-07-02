@@ -48,14 +48,54 @@ Future<EntryDto> updateEntry({required EntryDto entry}) =>
 Future<void> deleteEntry({required String id}) =>
     RustLib.instance.api.crateApiVaultDeleteEntry(id: id);
 
+Future<List<EntryDto>> listArchived() =>
+    RustLib.instance.api.crateApiVaultListArchived();
+
+Future<void> setArchived({required String id, required bool archived}) =>
+    RustLib.instance.api.crateApiVaultSetArchived(id: id, archived: archived);
+
+/// 범용 CSV 텍스트를 가져와 항목으로 추가. 추가된 개수 반환.
+Future<int> importCsv({required String text}) =>
+    RustLib.instance.api.crateApiVaultImportCsv(text: text);
+
+/// 활성 항목을 CSV 평문으로 내보냄 (암호화되지 않음).
+Future<String> exportCsv() => RustLib.instance.api.crateApiVaultExportCsv();
+
 Future<String> generatePassword({required GenOptionsDto opts}) =>
     RustLib.instance.api.crateApiVaultGeneratePassword(opts: opts);
+
+Future<String> generatePassphrase({required PassphraseOptionsDto opts}) =>
+    RustLib.instance.api.crateApiVaultGeneratePassphrase(opts: opts);
 
 Future<StrengthDto> passwordStrength({required String password}) =>
     RustLib.instance.api.crateApiVaultPasswordStrength(password: password);
 
 Future<TotpDto> totpNow({required String input}) =>
     RustLib.instance.api.crateApiVaultTotpNow(input: input);
+
+class CustomFieldDto {
+  final String label;
+  final String value;
+  final bool hidden;
+
+  const CustomFieldDto({
+    required this.label,
+    required this.value,
+    required this.hidden,
+  });
+
+  @override
+  int get hashCode => label.hashCode ^ value.hashCode ^ hidden.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CustomFieldDto &&
+          runtimeType == other.runtimeType &&
+          label == other.label &&
+          value == other.value &&
+          hidden == other.hidden;
+}
 
 class EntryDto {
   final String id;
@@ -70,6 +110,12 @@ class EntryDto {
   final PlatformInt64 createdAt;
   final PlatformInt64 updatedAt;
 
+  /// "login" | "note" | "card"
+  final String itemType;
+  final List<CustomFieldDto> customFields;
+  final List<PasswordHistoryDto> passwordHistory;
+  final bool archived;
+
   const EntryDto({
     required this.id,
     required this.title,
@@ -82,6 +128,10 @@ class EntryDto {
     required this.favorite,
     required this.createdAt,
     required this.updatedAt,
+    required this.itemType,
+    required this.customFields,
+    required this.passwordHistory,
+    required this.archived,
   });
 
   @override
@@ -96,7 +146,11 @@ class EntryDto {
       tags.hashCode ^
       favorite.hashCode ^
       createdAt.hashCode ^
-      updatedAt.hashCode;
+      updatedAt.hashCode ^
+      itemType.hashCode ^
+      customFields.hashCode ^
+      passwordHistory.hashCode ^
+      archived.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -113,7 +167,11 @@ class EntryDto {
           tags == other.tags &&
           favorite == other.favorite &&
           createdAt == other.createdAt &&
-          updatedAt == other.updatedAt;
+          updatedAt == other.updatedAt &&
+          itemType == other.itemType &&
+          customFields == other.customFields &&
+          passwordHistory == other.passwordHistory &&
+          archived == other.archived;
 }
 
 class GenOptionsDto {
@@ -153,6 +211,55 @@ class GenOptionsDto {
           digits == other.digits &&
           symbols == other.symbols &&
           excludeAmbiguous == other.excludeAmbiguous;
+}
+
+class PassphraseOptionsDto {
+  final int wordCount;
+  final String separator;
+  final bool capitalize;
+  final bool addNumber;
+
+  const PassphraseOptionsDto({
+    required this.wordCount,
+    required this.separator,
+    required this.capitalize,
+    required this.addNumber,
+  });
+
+  @override
+  int get hashCode =>
+      wordCount.hashCode ^
+      separator.hashCode ^
+      capitalize.hashCode ^
+      addNumber.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PassphraseOptionsDto &&
+          runtimeType == other.runtimeType &&
+          wordCount == other.wordCount &&
+          separator == other.separator &&
+          capitalize == other.capitalize &&
+          addNumber == other.addNumber;
+}
+
+class PasswordHistoryDto {
+  final String password;
+  final PlatformInt64 changedAt;
+
+  const PasswordHistoryDto({required this.password, required this.changedAt});
+
+  @override
+  int get hashCode => password.hashCode ^ changedAt.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PasswordHistoryDto &&
+          runtimeType == other.runtimeType &&
+          password == other.password &&
+          changedAt == other.changedAt;
 }
 
 class StrengthDto {

@@ -15,12 +15,22 @@ class GeneratorPage extends StatefulWidget {
 }
 
 class _GeneratorPageState extends State<GeneratorPage> {
+  bool _passphraseMode = false;
+
+  // 문자 비밀번호 옵션
   double _length = 20;
   bool _lower = true;
   bool _upper = true;
   bool _digits = true;
   bool _symbols = true;
   bool _excludeAmbiguous = false;
+
+  // 패스프레이즈 옵션
+  double _wordCount = 5;
+  bool _capitalize = true;
+  bool _addNumber = true;
+  String _separator = '-';
+
   String _password = '';
 
   @override
@@ -31,18 +41,26 @@ class _GeneratorPageState extends State<GeneratorPage> {
 
   Future<void> _regenerate() async {
     try {
-      final p = await generatePassword(
-          opts: GenOptionsDto(
-        length: _length.round(),
-        lower: _lower,
-        upper: _upper,
-        digits: _digits,
-        symbols: _symbols,
-        excludeAmbiguous: _excludeAmbiguous,
-      ));
+      final p = _passphraseMode
+          ? await generatePassphrase(
+              opts: PassphraseOptionsDto(
+              wordCount: _wordCount.round(),
+              separator: _separator,
+              capitalize: _capitalize,
+              addNumber: _addNumber,
+            ))
+          : await generatePassword(
+              opts: GenOptionsDto(
+              length: _length.round(),
+              lower: _lower,
+              upper: _upper,
+              digits: _digits,
+              symbols: _symbols,
+              excludeAmbiguous: _excludeAmbiguous,
+            ));
       if (mounted) setState(() => _password = p);
     } catch (_) {
-      // 모든 클래스가 꺼진 경우 — 마지막 값 유지
+      // 잘못된 옵션 — 마지막 값 유지
     }
   }
 
@@ -53,6 +71,10 @@ class _GeneratorPageState extends State<GeneratorPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // 모드 전환
+          _modeSelector(),
+          const SizedBox(height: 16),
+          // 결과 카드
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
@@ -104,34 +126,7 @@ class _GeneratorPageState extends State<GeneratorPage> {
           Card(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Column(children: [
-                Row(children: [
-                  const Text('길이'),
-                  Expanded(
-                    child: Slider(
-                      value: _length,
-                      min: 8,
-                      max: 64,
-                      divisions: 56,
-                      label: '${_length.round()}',
-                      onChanged: (v) => setState(() => _length = v),
-                      onChangeEnd: (_) => _regenerate(),
-                    ),
-                  ),
-                  SizedBox(
-                      width: 32,
-                      child: Text('${_length.round()}',
-                          textAlign: TextAlign.right,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.w700))),
-                ]),
-                _toggle('소문자 (a-z)', _lower, (v) => _lower = v),
-                _toggle('대문자 (A-Z)', _upper, (v) => _upper = v),
-                _toggle('숫자 (0-9)', _digits, (v) => _digits = v),
-                _toggle('기호 (!@#\$...)', _symbols, (v) => _symbols = v),
-                _toggle('헷갈리는 문자 제외 (l, 1, O, 0...)', _excludeAmbiguous,
-                    (v) => _excludeAmbiguous = v),
-              ]),
+              child: _passphraseMode ? _passphraseOptions() : _passwordOptions(),
             ),
           ),
           if (widget.pickMode) ...[
@@ -139,15 +134,117 @@ class _GeneratorPageState extends State<GeneratorPage> {
             FilledButton.icon(
               icon: const Icon(Icons.check_rounded),
               onPressed: () => Navigator.of(context).pop(_password),
-              label: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 14),
-                child: Text('이 비밀번호 사용', style: TextStyle(fontSize: 16)),
-              ),
+              label: const Text('이 비밀번호 사용'),
             ),
           ],
         ],
       ),
     );
+  }
+
+  Widget _modeSelector() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: G.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: G.border),
+      ),
+      child: Row(children: [
+        _modeTab('비밀번호', !_passphraseMode, () {
+          setState(() => _passphraseMode = false);
+          _regenerate();
+        }),
+        _modeTab('패스프레이즈', _passphraseMode, () {
+          setState(() => _passphraseMode = true);
+          _regenerate();
+        }),
+      ]),
+    );
+  }
+
+  Widget _modeTab(String label, bool active, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: active ? G.mint : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          alignment: Alignment.center,
+          child: Text(label,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: active ? G.onMint : G.sub,
+              )),
+        ),
+      ),
+    );
+  }
+
+  Widget _passwordOptions() {
+    return Column(children: [
+      _sliderRow('길이', _length, 8, 64, 56, (v) => setState(() => _length = v)),
+      _toggle('소문자 (a-z)', _lower, (v) => _lower = v),
+      _toggle('대문자 (A-Z)', _upper, (v) => _upper = v),
+      _toggle('숫자 (0-9)', _digits, (v) => _digits = v),
+      _toggle('기호 (!@#\$...)', _symbols, (v) => _symbols = v),
+      _toggle('헷갈리는 문자 제외 (l, 1, O, 0...)', _excludeAmbiguous,
+          (v) => _excludeAmbiguous = v),
+    ]);
+  }
+
+  Widget _passphraseOptions() {
+    return Column(children: [
+      _sliderRow('단어 수', _wordCount, 3, 10, 7,
+          (v) => setState(() => _wordCount = v)),
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(children: [
+          const Text('구분자'),
+          const Spacer(),
+          ...['-', '.', '_', ' '].map((s) => Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: ChoiceChip(
+                  label: Text(s == ' ' ? '공백' : s),
+                  selected: _separator == s,
+                  onSelected: (_) {
+                    setState(() => _separator = s);
+                    _regenerate();
+                  },
+                ),
+              )),
+        ]),
+      ),
+      _toggle('첫 글자 대문자', _capitalize, (v) => _capitalize = v),
+      _toggle('끝에 숫자 추가', _addNumber, (v) => _addNumber = v),
+    ]);
+  }
+
+  Widget _sliderRow(String label, double value, double min, double max,
+      int divisions, void Function(double) onChanged) {
+    return Row(children: [
+      SizedBox(width: 56, child: Text(label)),
+      Expanded(
+        child: Slider(
+          value: value,
+          min: min,
+          max: max,
+          divisions: divisions,
+          label: '${value.round()}',
+          onChanged: onChanged,
+          onChangeEnd: (_) => _regenerate(),
+        ),
+      ),
+      SizedBox(
+          width: 32,
+          child: Text('${value.round()}',
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontWeight: FontWeight.w700))),
+    ]);
   }
 
   Widget _toggle(String label, bool value, void Function(bool) set) {

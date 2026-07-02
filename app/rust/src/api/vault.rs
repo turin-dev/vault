@@ -23,6 +23,17 @@ fn with_vault<T>(f: impl FnOnce(&Vault) -> Result<T>) -> Result<T> {
 
 // ---- DTO ----
 
+pub struct CustomFieldDto {
+    pub label: String,
+    pub value: String,
+    pub hidden: bool,
+}
+
+pub struct PasswordHistoryDto {
+    pub password: String,
+    pub changed_at: i64,
+}
+
 pub struct EntryDto {
     pub id: String,
     pub title: String,
@@ -35,9 +46,15 @@ pub struct EntryDto {
     pub favorite: bool,
     pub created_at: i64,
     pub updated_at: i64,
+    /// "login" | "note" | "card"
+    pub item_type: String,
+    pub custom_fields: Vec<CustomFieldDto>,
+    pub password_history: Vec<PasswordHistoryDto>,
+    pub archived: bool,
 }
 
-fn to_dto(e: core::Entry) -> EntryDto {
+// Entry는 ZeroizeOnDrop(Drop)이라 필드를 move할 수 없어 clone으로 복사한다.
+pub(crate) fn to_dto(e: core::Entry) -> EntryDto {
     EntryDto {
         id: e.id.clone(),
         title: e.title.clone(),
@@ -50,6 +67,25 @@ fn to_dto(e: core::Entry) -> EntryDto {
         favorite: e.favorite,
         created_at: e.created_at,
         updated_at: e.updated_at,
+        item_type: e.item_type.clone(),
+        custom_fields: e
+            .custom_fields
+            .iter()
+            .map(|f| CustomFieldDto {
+                label: f.label.clone(),
+                value: f.value.clone(),
+                hidden: f.hidden,
+            })
+            .collect(),
+        password_history: e
+            .password_history
+            .iter()
+            .map(|h| PasswordHistoryDto {
+                password: h.password.clone(),
+                changed_at: h.changed_at,
+            })
+            .collect(),
+        archived: e.archived,
     }
 }
 
@@ -66,6 +102,29 @@ fn from_dto(d: EntryDto) -> core::Entry {
         favorite: d.favorite,
         created_at: d.created_at,
         updated_at: d.updated_at,
+        item_type: if d.item_type.is_empty() {
+            core::ITEM_LOGIN.to_string()
+        } else {
+            d.item_type
+        },
+        custom_fields: d
+            .custom_fields
+            .into_iter()
+            .map(|f| core::CustomField {
+                label: f.label,
+                value: f.value,
+                hidden: f.hidden,
+            })
+            .collect(),
+        password_history: d
+            .password_history
+            .into_iter()
+            .map(|h| core::PasswordHistoryItem {
+                password: h.password,
+                changed_at: h.changed_at,
+            })
+            .collect(),
+        archived: d.archived,
     }
 }
 
@@ -154,6 +213,38 @@ pub fn delete_entry(id: String) -> Result<()> {
     with_vault(|v| v.delete_entry(&id).map_err(core_err))
 }
 
+// ---- 아카이브 ----
+
+pub fn list_archived() -> Result<Vec<EntryDto>> {
+    with_vault(|v| {
+        Ok(v.list_archived()
+            .map_err(core_err)?
+            .into_iter()
+            .map(to_dto)
+            .collect())
+    })
+}
+
+pub fn set_archived(id: String, archived: bool) -> Result<()> {
+    with_vault(|v| v.set_archived(&id, archived).map_err(core_err))
+}
+
+// ---- 가져오기 / 내보내기 ----
+
+/// 범용 CSV 텍스트를 가져와 항목으로 추가. 추가된 개수 반환.
+pub fn import_csv(text: String) -> Result<u32> {
+    let entries = core::parse_generic_csv(&text).map_err(core_err)?;
+    with_vault(|v| v.import_entries(entries).map_err(core_err))
+}
+
+/// 활성 항목을 CSV 평문으로 내보냄 (암호화되지 않음).
+pub fn export_csv() -> Result<String> {
+    with_vault(|v| {
+        let entries = v.list_entries().map_err(core_err)?;
+        Ok(core::to_csv(&entries))
+    })
+}
+
 // ---- 도구 ----
 
 pub fn generate_password(opts: GenOptionsDto) -> Result<String> {
@@ -166,6 +257,23 @@ pub fn generate_password(opts: GenOptionsDto) -> Result<String> {
         exclude_ambiguous: opts.exclude_ambiguous,
     };
     core::generate_password(&o).map_err(core_err)
+}
+
+pub struct PassphraseOptionsDto {
+    pub word_count: u32,
+    pub separator: String,
+    pub capitalize: bool,
+    pub add_number: bool,
+}
+
+pub fn generate_passphrase(opts: PassphraseOptionsDto) -> Result<String> {
+    let o = core::PassphraseOptions {
+        word_count: opts.word_count,
+        separator: opts.separator,
+        capitalize: opts.capitalize,
+        add_number: opts.add_number,
+    };
+    core::generate_passphrase(&o).map_err(core_err)
 }
 
 pub fn password_strength(password: String) -> StrengthDto {

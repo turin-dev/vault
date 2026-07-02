@@ -85,6 +85,57 @@ pub fn generate_password(opts: &GenOptions) -> Result<String> {
     Ok(chars.into_iter().collect())
 }
 
+/// EFF large wordlist (7776 단어, 단어당 ~12.9비트 엔트로피).
+static WORDLIST: &str = include_str!("wordlist.txt");
+
+fn words() -> Vec<&'static str> {
+    WORDLIST.lines().filter(|l| !l.is_empty()).collect()
+}
+
+#[derive(Debug, Clone)]
+pub struct PassphraseOptions {
+    pub word_count: u32,
+    pub separator: String,
+    /// 각 단어 첫 글자 대문자화
+    pub capitalize: bool,
+    /// 끝에 임의 숫자(0~9) 한 자리 추가
+    pub add_number: bool,
+}
+
+impl Default for PassphraseOptions {
+    fn default() -> Self {
+        Self { word_count: 5, separator: "-".into(), capitalize: true, add_number: true }
+    }
+}
+
+/// EFF diceware 방식 패스프레이즈 생성.
+pub fn generate_passphrase(opts: &PassphraseOptions) -> Result<String> {
+    if opts.word_count < 3 || opts.word_count > 12 {
+        return Err(CoreError::InvalidArg("단어 수는 3~12개여야 합니다".into()));
+    }
+    let list = words();
+    let parts: Vec<String> = (0..opts.word_count)
+        .map(|_| {
+            let w = list[uniform(list.len() as u32) as usize];
+            if opts.capitalize {
+                let mut c = w.chars();
+                match c.next() {
+                    Some(first) => first.to_uppercase().chain(c).collect(),
+                    None => w.to_string(),
+                }
+            } else {
+                w.to_string()
+            }
+        })
+        .collect();
+    let mut out = parts.join(&opts.separator);
+    if opts.add_number {
+        out.push_str(&opts.separator);
+        out.push_str(&uniform(10).to_string());
+    }
+    Ok(out)
+}
+
 /// zxcvbn 기반 강도 평가. score: 0(최악)~4(최상).
 pub struct Strength {
     pub score: u8,
@@ -137,6 +188,26 @@ mod tests {
             let p = generate_password(&opts).unwrap();
             assert!(!p.chars().any(|c| AMBIGUOUS.contains(c)), "{p}");
         }
+    }
+
+    #[test]
+    fn passphrase_shape() {
+        let opts = PassphraseOptions {
+            word_count: 5,
+            separator: "-".into(),
+            capitalize: true,
+            add_number: true,
+        };
+        for _ in 0..20 {
+            let p = generate_passphrase(&opts).unwrap();
+            // 5 단어 + 숫자 1개 = '-'로 6조각
+            assert_eq!(p.split('-').count(), 6);
+            // 첫 글자 대문자
+            assert!(p.chars().next().unwrap().is_uppercase());
+            // 마지막 조각은 숫자
+            assert!(p.rsplit('-').next().unwrap().parse::<u8>().is_ok());
+        }
+        assert!(evaluate_strength(&generate_passphrase(&opts).unwrap()).score >= 3);
     }
 
     #[test]

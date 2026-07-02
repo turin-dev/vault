@@ -153,6 +153,10 @@ mod tests {
             favorite: false,
             created_at: 0,
             updated_at,
+            item_type: crate::model::ITEM_LOGIN.into(),
+            custom_fields: vec![],
+            password_history: vec![],
+            archived: false,
         }
     }
 
