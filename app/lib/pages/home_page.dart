@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../src/rust/api/sync.dart';
 import '../src/rust/api/vault.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'entry_detail_page.dart';
 import 'entry_edit_page.dart';
 import 'generator_page.dart';
+import 'sync_page.dart';
 import 'unlock_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -24,6 +26,25 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _reload();
+    _autoSync();
+  }
+
+  /// 동기화가 설정돼 있으면 진입 시 조용히 한 번 동기화.
+  Future<void> _autoSync() async {
+    try {
+      final config = await getSyncConfig();
+      if (config == null) return;
+      final r = await syncNow();
+      if (r.pulled > 0 && mounted) {
+        _reload();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('동기화됨 — ${r.pulled}개 항목 업데이트'),
+          duration: const Duration(seconds: 2),
+        ));
+      }
+    } catch (_) {
+      // 오프라인 등 — 조용히 무시, 수동 동기화는 동기화 화면에서
+    }
   }
 
   Future<void> _reload() async {
@@ -106,6 +127,15 @@ class _HomePageState extends State<HomePage> {
                 tooltip: '비밀번호 생성기',
                 onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const GeneratorPage())),
+              ),
+              IconButton(
+                icon: const Icon(Icons.cloud_sync_rounded),
+                tooltip: '동기화',
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SyncPage()));
+                  _reload();
+                },
               ),
               IconButton(
                 icon: const Icon(Icons.lock_rounded),

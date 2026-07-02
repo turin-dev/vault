@@ -8,6 +8,7 @@ import '../src/rust/api/vault.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'home_page.dart';
+import 'join_page.dart';
 
 /// 볼트가 없으면 생성, 있으면 잠금 해제.
 class UnlockPage extends StatefulWidget {
@@ -239,6 +240,17 @@ class _UnlockPageState extends State<UnlockPage> {
                   ? '금고 만들기'
                   : '잠금 해제'),
         ),
+        if (create) ...[
+          const SizedBox(height: 10),
+          TextButton.icon(
+            onPressed: _busy
+                ? null
+                : () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const JoinPage())),
+            icon: const Icon(Icons.devices_rounded, size: 18),
+            label: const Text('다른 기기에서 가져오기'),
+          ),
+        ],
         const SizedBox(height: 26),
         // 보안 스펙
         Wrap(

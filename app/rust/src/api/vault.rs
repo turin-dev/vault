@@ -7,7 +7,7 @@ use std::sync::Mutex;
 use anyhow::{anyhow, Result};
 use geumgo_core::{self as core, Vault};
 
-static VAULT: Mutex<Option<Vault>> = Mutex::new(None);
+pub(crate) static VAULT: Mutex<Option<Vault>> = Mutex::new(None);
 
 fn core_err(e: core::CoreError) -> anyhow::Error {
     anyhow!(e.to_string())

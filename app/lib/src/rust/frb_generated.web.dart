@@ -6,6 +6,7 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'api/sync.dart';
 import 'api/vault.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -36,6 +37,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   GenOptionsDto dco_decode_box_autoadd_gen_options_dto(dynamic raw);
 
   @protected
+  SyncConfigDto dco_decode_box_autoadd_sync_config_dto(dynamic raw);
+
+  @protected
   EntryDto dco_decode_entry_dto(dynamic raw);
 
   @protected
@@ -54,7 +58,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  SyncConfigDto? dco_decode_opt_box_autoadd_sync_config_dto(dynamic raw);
+
+  @protected
   StrengthDto dco_decode_strength_dto(dynamic raw);
+
+  @protected
+  SyncConfigDto dco_decode_sync_config_dto(dynamic raw);
+
+  @protected
+  SyncResultDto dco_decode_sync_result_dto(dynamic raw);
 
   @protected
   TotpDto dco_decode_totp_dto(dynamic raw);
@@ -89,6 +102,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SyncConfigDto sse_decode_box_autoadd_sync_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   EntryDto sse_decode_entry_dto(SseDeserializer deserializer);
 
   @protected
@@ -107,7 +125,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  SyncConfigDto? sse_decode_opt_box_autoadd_sync_config_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   StrengthDto sse_decode_strength_dto(SseDeserializer deserializer);
+
+  @protected
+  SyncConfigDto sse_decode_sync_config_dto(SseDeserializer deserializer);
+
+  @protected
+  SyncResultDto sse_decode_sync_result_dto(SseDeserializer deserializer);
 
   @protected
   TotpDto sse_decode_totp_dto(SseDeserializer deserializer);
@@ -152,6 +181,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_sync_config_dto(
+    SyncConfigDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_entry_dto(EntryDto self, SseSerializer serializer);
 
   @protected
@@ -173,7 +208,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_sync_config_dto(
+    SyncConfigDto? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_strength_dto(StrengthDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sync_config_dto(SyncConfigDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_sync_result_dto(SyncResultDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_totp_dto(TotpDto self, SseSerializer serializer);

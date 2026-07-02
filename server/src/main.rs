@@ -287,7 +287,9 @@ async fn sync(
         )
         .map_err(internal)?;
 
-    // 클라이언트 push 반영 — last-write-wins by updated_at
+    // 클라이언트 push 반영 — last-write-wins by updated_at.
+    // 클라이언트는 매 동기화마다 전체를 푸시하므로, 저장본보다 "엄격히" 최신일 때만
+    // 수락해야 변경 없는 엔트리가 리비전만 올리며 다른 기기로 메아리치지 않는다.
     for e in &req.entries {
         let stored_updated: Option<i64> = tx
             .query_row(
@@ -298,7 +300,7 @@ async fn sync(
             .optional()
             .map_err(internal)?;
         let accept = match stored_updated {
-            Some(t) => e.updated_at >= t,
+            Some(t) => e.updated_at > t,
             None => true,
         };
         if accept {
