@@ -7,6 +7,7 @@ import '../widgets.dart';
 import 'entry_detail_page.dart';
 import 'entry_edit_page.dart';
 import 'generator_page.dart';
+import 'security_page.dart';
 import 'sync_page.dart';
 import 'unlock_page.dart';
 
@@ -127,6 +128,15 @@ class _HomePageState extends State<HomePage> {
                 tooltip: '비밀번호 생성기',
                 onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const GeneratorPage())),
+              ),
+              IconButton(
+                icon: const Icon(Icons.verified_user_rounded),
+                tooltip: '보안 점검',
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SecurityPage()));
+                  _reload();
+                },
               ),
               IconButton(
                 icon: const Icon(Icons.cloud_sync_rounded),

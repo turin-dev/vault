@@ -6,6 +6,7 @@
 // Static analysis wrongly picks the IO variant, thus ignore this
 // ignore_for_file: argument_type_not_assignable
 
+import 'api/audit.dart';
 import 'api/sync.dart';
 import 'api/vault.dart';
 import 'dart:async';
@@ -28,6 +29,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   String dco_decode_String(dynamic raw);
 
   @protected
+  AuditEntryRefDto dco_decode_audit_entry_ref_dto(dynamic raw);
+
+  @protected
+  AuditReportDto dco_decode_audit_report_dto(dynamic raw);
+
+  @protected
   bool dco_decode_bool(dynamic raw);
 
   @protected
@@ -38,6 +45,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SyncConfigDto dco_decode_box_autoadd_sync_config_dto(dynamic raw);
+
+  @protected
+  BreachHitDto dco_decode_breach_hit_dto(dynamic raw);
+
+  @protected
+  BreachReportDto dco_decode_breach_report_dto(dynamic raw);
 
   @protected
   EntryDto dco_decode_entry_dto(dynamic raw);
@@ -52,13 +65,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> dco_decode_list_String(dynamic raw);
 
   @protected
+  List<AuditEntryRefDto> dco_decode_list_audit_entry_ref_dto(dynamic raw);
+
+  @protected
+  List<BreachHitDto> dco_decode_list_breach_hit_dto(dynamic raw);
+
+  @protected
   List<EntryDto> dco_decode_list_entry_dto(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<ReuseGroupDto> dco_decode_list_reuse_group_dto(dynamic raw);
+
+  @protected
   SyncConfigDto? dco_decode_opt_box_autoadd_sync_config_dto(dynamic raw);
+
+  @protected
+  ReuseGroupDto dco_decode_reuse_group_dto(dynamic raw);
 
   @protected
   StrengthDto dco_decode_strength_dto(dynamic raw);
@@ -85,10 +110,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void dco_decode_unit(dynamic raw);
 
   @protected
+  BigInt dco_decode_usize(dynamic raw);
+
+  @protected
   AnyhowException sse_decode_AnyhowException(SseDeserializer deserializer);
 
   @protected
   String sse_decode_String(SseDeserializer deserializer);
+
+  @protected
+  AuditEntryRefDto sse_decode_audit_entry_ref_dto(SseDeserializer deserializer);
+
+  @protected
+  AuditReportDto sse_decode_audit_report_dto(SseDeserializer deserializer);
 
   @protected
   bool sse_decode_bool(SseDeserializer deserializer);
@@ -107,6 +141,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  BreachHitDto sse_decode_breach_hit_dto(SseDeserializer deserializer);
+
+  @protected
+  BreachReportDto sse_decode_breach_report_dto(SseDeserializer deserializer);
+
+  @protected
   EntryDto sse_decode_entry_dto(SseDeserializer deserializer);
 
   @protected
@@ -119,15 +159,33 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<String> sse_decode_list_String(SseDeserializer deserializer);
 
   @protected
+  List<AuditEntryRefDto> sse_decode_list_audit_entry_ref_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<BreachHitDto> sse_decode_list_breach_hit_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   List<EntryDto> sse_decode_list_entry_dto(SseDeserializer deserializer);
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<ReuseGroupDto> sse_decode_list_reuse_group_dto(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   SyncConfigDto? sse_decode_opt_box_autoadd_sync_config_dto(
     SseDeserializer deserializer,
   );
+
+  @protected
+  ReuseGroupDto sse_decode_reuse_group_dto(SseDeserializer deserializer);
 
   @protected
   StrengthDto sse_decode_strength_dto(SseDeserializer deserializer);
@@ -154,6 +212,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_decode_unit(SseDeserializer deserializer);
 
   @protected
+  BigInt sse_decode_usize(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_i_32(SseDeserializer deserializer);
 
   @protected
@@ -164,6 +225,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_String(String self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_audit_entry_ref_dto(
+    AuditEntryRefDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_audit_report_dto(
+    AuditReportDto self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_bool(bool self, SseSerializer serializer);
@@ -187,6 +260,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_breach_hit_dto(BreachHitDto self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_breach_report_dto(
+    BreachReportDto self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_entry_dto(EntryDto self, SseSerializer serializer);
 
   @protected
@@ -199,6 +281,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_audit_entry_ref_dto(
+    List<AuditEntryRefDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_breach_hit_dto(
+    List<BreachHitDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_entry_dto(List<EntryDto> self, SseSerializer serializer);
 
   @protected
@@ -208,10 +302,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_reuse_group_dto(
+    List<ReuseGroupDto> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_sync_config_dto(
     SyncConfigDto? self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_reuse_group_dto(ReuseGroupDto self, SseSerializer serializer);
 
   @protected
   void sse_encode_strength_dto(StrengthDto self, SseSerializer serializer);
@@ -236,6 +339,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_unit(void self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_usize(BigInt self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_32(int self, SseSerializer serializer);

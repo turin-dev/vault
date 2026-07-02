@@ -179,6 +179,12 @@ impl Vault {
         Ok(out)
     }
 
+    /// 잠금 해제된 모든 엔트리에 대해 보안 점검을 수행.
+    pub fn audit(&self) -> Result<crate::audit::AuditReport> {
+        let entries = self.list_entries()?;
+        Ok(crate::audit::audit(&entries, now()))
+    }
+
     // ---- 동기화 지원 ----
 
     pub fn export_encrypted(&self) -> Result<Vec<EncryptedEntry>> {
