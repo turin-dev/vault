@@ -254,3 +254,65 @@ pub fn join_remote_vault(
     sync_now()?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::vault as vapi;
+
+    fn entry(title: &str) -> vapi::EntryDto {
+        vapi::EntryDto {
+            id: String::new(),
+            title: title.into(),
+            username: "me@example.com".into(),
+            password: "s3cret!".into(),
+            url: String::new(),
+            notes: String::new(),
+            totp: String::new(),
+            tags: vec![],
+            favorite: false,
+            created_at: 0,
+            updated_at: 0,
+        }
+    }
+
+    /// 실서버 대상 E2E: cargo test -p rust_lib_app -- --ignored
+    #[test]
+    #[ignore]
+    fn e2e_register_and_join_live_server() {
+        let dir = std::env::temp_dir().join(format!("geumgo-e2e-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p1 = dir.join("dev1.vault").to_string_lossy().into_owned();
+        let p2 = dir.join("dev2.vault").to_string_lossy().into_owned();
+        let user = format!("e2e{}", now_secs());
+        let pw = "e2e-test-password-123!".to_string();
+        let url = std::env::var("GEUMGO_E2E_URL")
+            .unwrap_or_else(|_| "https://sync.turin.my".into());
+
+        // 기기 1: 볼트 생성 → 항목 추가 → 계정 등록(첫 업로드 포함)
+        vapi::create_vault(p1, pw.clone()).unwrap();
+        vapi::add_entry(entry("E2E-Entry")).unwrap();
+        register_account(url.clone(), user.clone()).unwrap();
+        let cfg = get_sync_config().unwrap().expect("동기화 설정 저장됨");
+        assert!(cfg.since_revision >= 1);
+        vapi::lock_vault();
+
+        // 기기 2: 계정으로 합류 → 항목이 내려와야 함
+        join_remote_vault(p2, url, user, pw).unwrap();
+        let list = vapi::list_entries().unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].title, "E2E-Entry");
+        assert_eq!(list[0].password, "s3cret!");
+
+        // 기기 2에서 수정 → 푸시
+        let mut e = list.into_iter().next().unwrap();
+        e.password = "rotated!".into();
+        std::thread::sleep(std::time::Duration::from_millis(1100));
+        vapi::update_entry(e).unwrap();
+        let r = sync_now().unwrap();
+        assert!(r.server_revision > cfg.since_revision);
+        vapi::lock_vault();
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
