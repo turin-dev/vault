@@ -37,11 +37,17 @@ geumgo/
 
 ## 기능
 
+- 항목 종류: 로그인 / 보안 메모 / 카드
 - 로그인 항목 (아이디/비밀번호/URL/메모/태그/즐겨찾기)
+- 커스텀 필드 (일반/숨김 타입) — 복구 코드·PIN·보안질문 등
+- 비밀번호 변경 이력 (변경 시 이전 값 자동 보관, 최대 25개)
 - TOTP 일회용 코드 (RFC 6238, base32/otpauth URI, 실시간 갱신)
-- 비밀번호 생성기 (OsRng, modulo-bias 제거, 문자 클래스 보장)
+- 비밀번호 생성기 (OsRng, modulo-bias 제거) + 패스프레이즈 생성기 (EFF 7776 단어)
 - 강도 평가 (zxcvbn)
-- 검색, Material 3 UI (라이트/다크)
+- **보안 대시보드**: 취약·재사용·오래된 비밀번호 점검 + HIBP 유출 검사(k-익명성)
+- 보관함(아카이브) + 복원
+- 가져오기/내보내기 (범용 CSV — Bitwarden/1Password/Chrome/KeePass 자동 인식)
+- 검색, Material 3 다크 UI (Pretendard)
 
 ## 빌드
 
