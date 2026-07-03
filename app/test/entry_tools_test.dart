@@ -86,6 +86,26 @@ void main() {
     expect(tags, ['code', 'personal', 'Work']);
   });
 
+  test('merges tags immutably and case-insensitively', () {
+    final merged = mergeTags(['Work', ' personal '], ['work', 'banking', '']);
+
+    expect(merged, ['Work', 'personal', 'banking']);
+  });
+
+  test('copies entry with selected immutable updates', () {
+    final original = _entry(title: 'GitHub', tags: ['work']);
+    final copied = copyEntryWith(
+      entry: original,
+      favorite: true,
+      tags: mergeTags(original.tags, ['code']),
+    );
+
+    expect(copied.favorite, isTrue);
+    expect(copied.tags, ['work', 'code']);
+    expect(original.favorite, isFalse);
+    expect(original.tags, ['work']);
+  });
+
   test('validates title, web url, and totp shape', () {
     expect(
       validateEntryDraft(

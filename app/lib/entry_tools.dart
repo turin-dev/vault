@@ -75,6 +75,43 @@ List<String> collectTags(List<EntryDto> entries) {
   return unique;
 }
 
+List<String> mergeTags(List<String> current, Iterable<String> additions) {
+  final merged = <String>[];
+  final seen = <String>{};
+  for (final tag in [...current, ...additions]) {
+    final trimmed = tag.trim();
+    final key = trimmed.toLowerCase();
+    if (trimmed.isEmpty || seen.contains(key)) continue;
+    seen.add(key);
+    merged.add(trimmed);
+  }
+  return merged;
+}
+
+EntryDto copyEntryWith({
+  required EntryDto entry,
+  bool? favorite,
+  List<String>? tags,
+}) {
+  return EntryDto(
+    id: entry.id,
+    title: entry.title,
+    username: entry.username,
+    password: entry.password,
+    url: entry.url,
+    notes: entry.notes,
+    totp: entry.totp,
+    tags: tags ?? entry.tags,
+    favorite: favorite ?? entry.favorite,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+    itemType: entry.itemType,
+    customFields: entry.customFields,
+    passwordHistory: entry.passwordHistory,
+    archived: entry.archived,
+  );
+}
+
 EntryDraftValidation validateEntryDraft({
   required String title,
   required String itemType,

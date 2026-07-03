@@ -27,6 +27,7 @@ class _HomePageState extends State<HomePage> {
   EntryTypeFilter _filter = EntryTypeFilter.all;
   EntrySortMode _sortMode = EntrySortMode.updatedDesc;
   String? _selectedTag;
+  Set<String> _selectedIds = {};
   bool _loading = true;
 
   @override
@@ -76,6 +77,12 @@ class _HomePageState extends State<HomePage> {
     return sortEntries(filtered, _sortMode);
   }
 
+  List<EntryDto> get _selectedEntries {
+    return _entries.where((entry) => _selectedIds.contains(entry.id)).toList();
+  }
+
+  bool get _selectionMode => _selectedIds.isNotEmpty;
+
   Future<void> _lock() async {
     await lockVault();
     if (!mounted) return;
@@ -89,6 +96,95 @@ class _HomePageState extends State<HomePage> {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _toggleSelection(String id) {
+    setState(() {
+      _selectedIds = _selectedIds.contains(id)
+          ? {..._selectedIds.where((selectedId) => selectedId != id)}
+          : {..._selectedIds, id};
+    });
+  }
+
+  void _clearSelection() {
+    setState(() => _selectedIds = {});
+  }
+
+  void _selectVisibleEntries() {
+    setState(() {
+      _selectedIds = {
+        ..._selectedIds,
+        ..._visibleEntries.map((entry) => entry.id),
+      };
+    });
+  }
+
+  Future<void> _archiveSelected() async {
+    final ids = _selectedIds.toList();
+    for (final id in ids) {
+      await setArchived(id: id, archived: true);
+    }
+    if (!mounted) return;
+    _clearSelection();
+    await _reload();
+    if (mounted) _showMessage('${ids.length}개 항목을 보관함으로 이동했습니다');
+  }
+
+  Future<void> _favoriteSelected() async {
+    final entries = _selectedEntries;
+    for (final entry in entries) {
+      await updateEntry(entry: copyEntryWith(entry: entry, favorite: true));
+    }
+    if (!mounted) return;
+    _clearSelection();
+    await _reload();
+    if (mounted) _showMessage('${entries.length}개 항목을 즐겨찾기에 추가했습니다');
+  }
+
+  Future<void> _tagSelected() async {
+    final tag = await _askTag();
+    if (tag == null || tag.trim().isEmpty) return;
+    final entries = _selectedEntries;
+    for (final entry in entries) {
+      await updateEntry(
+        entry: copyEntryWith(entry: entry, tags: mergeTags(entry.tags, [tag])),
+      );
+    }
+    if (!mounted) return;
+    _clearSelection();
+    await _reload();
+    if (mounted) {
+      _showMessage('${entries.length}개 항목에 #${tag.trim()} 태그를 추가했습니다');
+    }
+  }
+
+  Future<String?> _askTag() {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('태그 추가'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            labelText: '태그',
+            prefixIcon: Icon(Icons.sell_rounded),
+          ),
+          onSubmitted: (_) => Navigator.pop(ctx, controller.text.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('추가'),
+          ),
+        ],
+      ),
+    ).whenComplete(controller.dispose);
   }
 
   @override
@@ -152,16 +248,28 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('추가'),
-        onPressed: () async {
-          final saved = await Navigator.of(context).push<bool>(
-            MaterialPageRoute(builder: (_) => const EntryEditPage()),
-          );
-          if (saved == true) _reload();
-        },
-      ),
+      bottomNavigationBar: _selectionMode
+          ? _SelectionBar(
+              count: _selectedIds.length,
+              onClear: _clearSelection,
+              onSelectVisible: _selectVisibleEntries,
+              onFavorite: _favoriteSelected,
+              onTag: _tagSelected,
+              onArchive: _archiveSelected,
+            )
+          : null,
+      floatingActionButton: _selectionMode
+          ? null
+          : FloatingActionButton.extended(
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('추가'),
+              onPressed: () async {
+                final saved = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(builder: (_) => const EntryEditPage()),
+                );
+                if (saved == true) _reload();
+              },
+            ),
     );
   }
 
@@ -175,28 +283,107 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _tile(EntryDto entry) {
+    final selected = _selectedIds.contains(entry.id);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Card(
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
           onTap: () async {
+            if (_selectionMode) {
+              _toggleSelection(entry.id);
+              return;
+            }
             await Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => EntryDetailPage(id: entry.id)),
             );
             _reload();
           },
+          onLongPress: () => _toggleSelection(entry.id),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
             child: Row(
               children: [
+                if (_selectionMode) ...[
+                  Checkbox(
+                    value: selected,
+                    onChanged: (_) => _toggleSelection(entry.id),
+                  ),
+                  const SizedBox(width: 4),
+                ],
                 Monogram(seed: entry.title),
                 const SizedBox(width: 14),
                 Expanded(child: _EntryTileBody(entry: entry)),
-                _QuickCopyMenu(entry: entry),
+                if (!_selectionMode) _QuickCopyMenu(entry: entry),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectionBar extends StatelessWidget {
+  const _SelectionBar({
+    required this.count,
+    required this.onClear,
+    required this.onSelectVisible,
+    required this.onFavorite,
+    required this.onTag,
+    required this.onArchive,
+  });
+
+  final int count;
+  final VoidCallback onClear;
+  final VoidCallback onSelectVisible;
+  final VoidCallback onFavorite;
+  final VoidCallback onTag;
+  final VoidCallback onArchive;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        decoration: const BoxDecoration(
+          color: G.surfaceHi,
+          border: Border(top: BorderSide(color: G.border)),
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: '선택 해제',
+              icon: const Icon(Icons.close_rounded),
+              onPressed: onClear,
+            ),
+            Text(
+              '$count개 선택',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const Spacer(),
+            IconButton(
+              tooltip: '보이는 항목 모두 선택',
+              icon: const Icon(Icons.select_all_rounded),
+              onPressed: onSelectVisible,
+            ),
+            IconButton(
+              tooltip: '즐겨찾기 추가',
+              icon: const Icon(Icons.star_rounded),
+              onPressed: onFavorite,
+            ),
+            IconButton(
+              tooltip: '태그 추가',
+              icon: const Icon(Icons.sell_rounded),
+              onPressed: onTag,
+            ),
+            IconButton(
+              tooltip: '보관함으로 이동',
+              icon: const Icon(Icons.archive_outlined),
+              onPressed: onArchive,
+            ),
+          ],
         ),
       ),
     );
