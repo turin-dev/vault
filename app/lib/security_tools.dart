@@ -6,6 +6,8 @@ enum SecurityActionKind { breach, reused, weak, missing2fa, stale, empty }
 
 enum SecurityActionSeverity { critical, high, medium, low }
 
+const travelSafeTag = 'travel-safe';
+
 class SecurityActionItem {
   const SecurityActionItem({
     required this.id,
@@ -22,6 +24,25 @@ class SecurityActionItem {
   final SecurityActionKind kind;
   final SecurityActionSeverity severity;
   final int priority;
+}
+
+class TravelReadinessReport {
+  const TravelReadinessReport({
+    required this.activeCount,
+    required this.safeEntries,
+    required this.hiddenEntries,
+    required this.highValueHiddenEntries,
+  });
+
+  final int activeCount;
+  final List<EntryDto> safeEntries;
+  final List<EntryDto> hiddenEntries;
+  final List<EntryDto> highValueHiddenEntries;
+
+  int get safeCount => safeEntries.length;
+  int get hiddenCount => hiddenEntries.length;
+  int get highValueHiddenCount => highValueHiddenEntries.length;
+  bool get ready => hiddenEntries.isEmpty;
 }
 
 List<SecurityActionItem> buildSecurityActionPlan({
@@ -91,6 +112,19 @@ List<SecurityActionItem> buildSecurityActionPlan({
   return _dedupeAndSort(actions);
 }
 
+TravelReadinessReport buildTravelReadiness(List<EntryDto> entries) {
+  final active = entries.where((entry) => !entry.archived).toList();
+  final safe = active.where(_isTravelSafe).toList();
+  final hidden = active.where((entry) => !_isTravelSafe(entry)).toList();
+  final highValueHidden = hidden.where(_isHighValueTravelEntry).toList();
+  return TravelReadinessReport(
+    activeCount: active.length,
+    safeEntries: safe,
+    hiddenEntries: hidden,
+    highValueHiddenEntries: highValueHidden,
+  );
+}
+
 SecurityActionItem _action({
   required String id,
   required String title,
@@ -128,6 +162,17 @@ bool _needsTwoFactor(EntryDto entry) {
       !entry.archived &&
       entry.password.isNotEmpty &&
       entry.totp.isEmpty;
+}
+
+bool _isTravelSafe(EntryDto entry) {
+  return entry.tags.any((tag) => tag.trim().toLowerCase() == travelSafeTag);
+}
+
+bool _isHighValueTravelEntry(EntryDto entry) {
+  if (entry.favorite || entry.itemType == 'card') return true;
+  final text = [entry.title, entry.url, ...entry.tags].join(' ').toLowerCase();
+  return _highValueTerms.any(text.contains) ||
+      _twoFactorService(entry.url) != null;
 }
 
 String? _twoFactorService(String url) {
@@ -169,3 +214,16 @@ const _twoFactorDomains = {
   'bitbucket.org': 'Bitbucket',
   'gitlab.com': 'GitLab',
 };
+
+const _highValueTerms = [
+  'bank',
+  'finance',
+  'card',
+  'identity',
+  'passport',
+  'crypto',
+  'wallet',
+  'email',
+  'tax',
+  'insurance',
+];

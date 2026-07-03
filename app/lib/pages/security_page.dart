@@ -65,6 +65,50 @@ class _SecurityPageState extends State<SecurityPage> {
     }
   }
 
+  Future<void> _prepareTravelMode() async {
+    final report = buildTravelReadiness(_entries);
+    if (report.hiddenEntries.isEmpty) {
+      _showMessage('여행 중 노출될 추가 항목이 없습니다');
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('여행 모드 준비'),
+        content: Text(
+          '${report.hiddenCount}개 항목을 보관함으로 이동합니다.\n'
+          '$travelSafeTag 태그가 붙은 ${report.safeCount}개 항목만 활성 목록에 남습니다.',
+          style: const TextStyle(color: G.sub, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('준비'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    for (final entry in report.hiddenEntries) {
+      await setArchived(id: entry.id, archived: true);
+    }
+    if (!mounted) return;
+    await _load();
+    if (mounted) {
+      _showMessage('${report.hiddenCount}개 항목을 보관함으로 이동했습니다');
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Color _scoreColor(int score) {
     if (score >= 85) return G.mint;
     if (score >= 60) return G.amber;
@@ -93,6 +137,7 @@ class _SecurityPageState extends State<SecurityPage> {
               children: [
                 _scoreCard(r),
                 _actionPlan(r),
+                _travelReadinessCard(),
                 const SizedBox(height: 20),
                 _breachSection(),
                 const SizedBox(height: 8),
@@ -371,6 +416,127 @@ class _SecurityPageState extends State<SecurityPage> {
       SecurityActionKind.stale => Icons.history_rounded,
       SecurityActionKind.empty => Icons.password_rounded,
     };
+  }
+
+  Widget _travelReadinessCard() {
+    final report = buildTravelReadiness(_entries);
+    if (report.activeCount == 0) return const SizedBox.shrink();
+    final color = report.ready
+        ? G.mint
+        : report.highValueHiddenCount > 0
+        ? G.danger
+        : G.amber;
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: G.surface,
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.flight_takeoff_rounded,
+                  color: color,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      report.ready ? '여행 준비 완료' : 'Travel Readiness',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${report.safeCount}개 유지 · ${report.hiddenCount}개 보관 대상',
+                      style: const TextStyle(fontSize: 12, color: G.sub),
+                    ),
+                  ],
+                ),
+              ),
+              TextButton(
+                onPressed: report.ready ? null : _prepareTravelMode,
+                child: const Text('준비'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _travelChip('활성', report.activeCount, G.sub),
+              _travelChip(travelSafeTag, report.safeCount, G.mint),
+              _travelChip('보관 대상', report.hiddenCount, G.amber),
+              _travelChip('고가치', report.highValueHiddenCount, G.danger),
+            ],
+          ),
+          if (report.highValueHiddenEntries.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ...report.highValueHiddenEntries.take(3).map(_travelRiskTile),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _travelChip(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.20)),
+      ),
+      child: Text(
+        '$label $count',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _travelRiskTile(EntryDto entry) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      leading: const Icon(Icons.priority_high_rounded, color: G.danger),
+      title: Text(
+        entry.title,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+      ),
+      subtitle: const Text(
+        '여행 전 보관하거나 travel-safe 태그를 명확히 지정하세요',
+        style: TextStyle(fontSize: 12, color: G.faint),
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded, color: G.faint),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => EntryDetailPage(id: entry.id))),
+    );
   }
 
   Widget _breachSection() {

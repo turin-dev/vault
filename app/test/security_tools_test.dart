@@ -102,6 +102,39 @@ void main() {
     expect(actions.map((action) => action.id), ['github']);
     expect(actions.single.detail, 'GitHub 계정에 2FA를 추가하세요.');
   });
+
+  test('builds travel readiness from travel-safe tags', () {
+    final report = buildTravelReadiness([
+      _entry(
+        id: 'safe',
+        title: 'Travel Mail',
+        tags: [' Travel-Safe '],
+        password: 'secret',
+      ),
+      _entry(id: 'bank', title: 'Bank', tags: ['finance'], password: 'secret'),
+      _entry(
+        id: 'github',
+        title: 'GitHub',
+        url: 'github.com',
+        password: 'secret',
+      ),
+      _entry(
+        id: 'archived',
+        title: 'Archived',
+        archived: true,
+        password: 'secret',
+      ),
+    ]);
+
+    expect(report.activeCount, 3);
+    expect(report.safeEntries.map((entry) => entry.id), ['safe']);
+    expect(report.hiddenEntries.map((entry) => entry.id), ['bank', 'github']);
+    expect(report.highValueHiddenEntries.map((entry) => entry.id), [
+      'bank',
+      'github',
+    ]);
+    expect(report.ready, isFalse);
+  });
 }
 
 AuditReportDto _emptyReport() {
