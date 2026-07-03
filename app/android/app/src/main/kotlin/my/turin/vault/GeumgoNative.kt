@@ -1,4 +1,4 @@
-package kr.scin.app
+package my.turin.vault
 
 /**
  * Rust 코어(librust_lib_app.so)로의 JNI 브리지.

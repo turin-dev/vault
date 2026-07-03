@@ -1,4 +1,4 @@
-package kr.scin.app
+package my.turin.vault
 
 import android.app.PendingIntent
 import android.app.assist.AssistStructure

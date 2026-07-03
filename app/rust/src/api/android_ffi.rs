@@ -14,7 +14,7 @@ use serde_json::json;
 use super::vault::VAULT;
 
 #[no_mangle]
-pub extern "system" fn Java_kr_scin_app_GeumgoNative_isUnlocked(
+pub extern "system" fn Java_my_turin_vault_GeumgoNative_isUnlocked(
     _env: JNIEnv,
     _class: JClass,
 ) -> jboolean {
@@ -26,7 +26,7 @@ pub extern "system" fn Java_kr_scin_app_GeumgoNative_isUnlocked(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_kr_scin_app_GeumgoNative_autofillCandidates<'l>(
+pub extern "system" fn Java_my_turin_vault_GeumgoNative_autofillCandidates<'l>(
     mut env: JNIEnv<'l>,
     _class: JClass<'l>,
     hint: JString<'l>,
