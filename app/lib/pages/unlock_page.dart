@@ -157,7 +157,7 @@ class _UnlockPageState extends State<UnlockPage> {
           ),
         ),
         const SizedBox(height: 20),
-        const Text('금고',
+        const Text('Vault',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 32,
@@ -166,7 +166,7 @@ class _UnlockPageState extends State<UnlockPage> {
             )),
         const SizedBox(height: 6),
         Text(
-          create ? '새 금고를 만듭니다.\n마스터 비밀번호는 복구할 수 없습니다.' : '마스터 비밀번호로 잠금을 해제하세요',
+          create ? '새 보관함을 만듭니다.\n마스터 비밀번호는 복구할 수 없습니다.' : '마스터 비밀번호로 잠금을 해제하세요',
           textAlign: TextAlign.center,
           style: const TextStyle(color: G.sub, fontSize: 14, height: 1.5),
         ),
@@ -237,7 +237,7 @@ class _UnlockPageState extends State<UnlockPage> {
           label: Text(retry > 0
               ? '다시 시도까지 $retry초'
               : create
-                  ? '금고 만들기'
+                  ? '보관함 만들기'
                   : '잠금 해제'),
         ),
         if (create) ...[

@@ -86,7 +86,7 @@ class _GeumgoAppState extends State<GeumgoApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '금고',
+      title: 'Vault',
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: buildGeumgoTheme(),

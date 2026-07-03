@@ -42,3 +42,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // 인라인 자동완성(키보드 추천 줄) 지원
+    implementation("androidx.autofill:autofill:1.1.0")
+}

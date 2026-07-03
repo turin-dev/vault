@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="금고"
+        android:label="Vault"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -29,7 +29,7 @@
         <!-- 자동완성 서비스 -->
         <service
             android:name=".GeumgoAutofillService"
-            android:label="금고"
+            android:label="Vault"
             android:permission="android.permission.BIND_AUTOFILL_SERVICE"
             android:exported="true">
             <intent-filter>

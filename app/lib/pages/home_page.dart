@@ -116,7 +116,7 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(width: 12),
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('금고',
+                const Text('Vault',
                     style: TextStyle(
                         fontSize: 19,
                         fontWeight: FontWeight.w800,

@@ -47,7 +47,7 @@ geumgo/
 - **보안 대시보드**: 취약·재사용·오래된 비밀번호 점검 + HIBP 유출 검사(k-익명성)
 - 보관함(아카이브) + 복원
 - 가져오기/내보내기 (범용 CSV — Bitwarden/1Password/Chrome/KeePass 자동 인식)
-- **Android 자동완성** (AutofillService): 다른 앱·브라우저 로그인 화면에서 아이디/비밀번호 자동 채움
+- **Android 자동완성** (AutofillService): 다른 앱·브라우저 로그인 화면에서 아이디/비밀번호 자동 채움. **키보드 인라인 추천(Android 11+)** + 드롭다운 모두 지원
 - 검색, Material 3 다크 UI (Pretendard)
 
 ### 자동완성 동작 방식

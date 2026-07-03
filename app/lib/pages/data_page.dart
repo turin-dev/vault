@@ -82,7 +82,7 @@ class _DataPageState extends State<DataPage> {
       final f = File(path);
       await f.writeAsString(csv);
       await SharePlus.instance.share(
-        ShareParams(files: [XFile(path)], text: '금고 내보내기 (평문 CSV)'),
+        ShareParams(files: [XFile(path)], text: 'Vault 내보내기 (평문 CSV)'),
       );
       _report('내보내기 완료 — 공유 후 임시 파일을 삭제하세요');
     } catch (e) {
