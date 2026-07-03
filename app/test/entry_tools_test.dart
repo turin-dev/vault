@@ -65,6 +65,57 @@ void main() {
     );
   });
 
+  test('filters by structured search tokens', () {
+    final entries = [
+      _entry(
+        title: 'GitHub',
+        username: 'octo',
+        itemType: 'login',
+        tags: ['work', 'code'],
+        favorite: true,
+        totp: 'JBSWY3DPEHPK3PXP',
+        url: 'https://github.com',
+      ),
+      _entry(
+        title: 'Passport',
+        itemType: 'note',
+        notes: 'safe',
+        tags: ['identity'],
+      ),
+      _entry(
+        title: 'Corporate Card',
+        itemType: 'card',
+        tags: ['work', 'finance'],
+        password: '123',
+      ),
+    ];
+
+    expect(
+      filterEntries(
+        entries: entries,
+        query: 'tag:work type:card has:password',
+        filter: EntryTypeFilter.all,
+      ).map((entry) => entry.title),
+      ['Corporate Card'],
+    );
+    expect(
+      filterEntries(
+        entries: entries,
+        query: 'fav:true has:2fa github',
+        filter: EntryTypeFilter.all,
+      ).map((entry) => entry.title),
+      ['GitHub'],
+    );
+    expect(
+      filterEntries(
+        entries: entries,
+        query: 'type:note safe',
+        filter: EntryTypeFilter.all,
+      ).map((entry) => entry.title),
+      ['Passport'],
+    );
+  });
+
   test('sorts without mutating the original list', () {
     final entries = [
       _entry(title: 'Beta', createdAt: 10, updatedAt: 20),

@@ -11,13 +11,33 @@ class EntryDraftValidation {
   final String? message;
 }
 
+class _SearchSpec {
+  const _SearchSpec({
+    required this.terms,
+    required this.tags,
+    required this.type,
+    required this.hasTotp,
+    required this.hasPassword,
+    required this.hasUrl,
+    required this.favorite,
+  });
+
+  final List<String> terms;
+  final List<String> tags;
+  final String? type;
+  final bool? hasTotp;
+  final bool? hasPassword;
+  final bool? hasUrl;
+  final bool? favorite;
+}
+
 List<EntryDto> filterEntries({
   required List<EntryDto> entries,
   required String query,
   required EntryTypeFilter filter,
   String? tag,
 }) {
-  final normalizedQuery = query.trim().toLowerCase();
+  final search = _parseSearch(query);
   final normalizedTag = tag?.trim().toLowerCase();
 
   return entries.where((entry) {
@@ -31,12 +51,30 @@ List<EntryDto> filterEntries({
     };
     if (!matchesFilter) return false;
 
+    if (search.type != null && entry.itemType != search.type) return false;
+    if (search.favorite != null && entry.favorite != search.favorite) {
+      return false;
+    }
+    if (search.hasTotp != null && entry.totp.isNotEmpty != search.hasTotp) {
+      return false;
+    }
+    if (search.hasPassword != null &&
+        entry.password.isNotEmpty != search.hasPassword) {
+      return false;
+    }
+    if (search.hasUrl != null && entry.url.isNotEmpty != search.hasUrl) {
+      return false;
+    }
+
     if (normalizedTag != null &&
         !entry.tags.any((tag) => tag.toLowerCase() == normalizedTag)) {
       return false;
     }
 
-    if (normalizedQuery.isEmpty) return true;
+    if (search.tags.isNotEmpty) {
+      final entryTags = entry.tags.map((tag) => tag.toLowerCase()).toSet();
+      if (!search.tags.every(entryTags.contains)) return false;
+    }
 
     final searchable = [
       entry.title,
@@ -47,8 +85,75 @@ List<EntryDto> filterEntries({
       ...entry.customFields.map((field) => field.label),
     ].join(' ').toLowerCase();
 
-    return searchable.contains(normalizedQuery);
+    return search.terms.every(searchable.contains);
   }).toList();
+}
+
+_SearchSpec _parseSearch(String query) {
+  final terms = <String>[];
+  final tags = <String>[];
+  String? type;
+  bool? hasTotp;
+  bool? hasPassword;
+  bool? hasUrl;
+  bool? favorite;
+
+  for (final rawToken in query.trim().split(RegExp(r'\s+'))) {
+    if (rawToken.isEmpty) continue;
+    final token = rawToken.toLowerCase();
+    final value = _tokenValue(token);
+    if (token.startsWith('tag:') && value.isNotEmpty) {
+      tags.add(value);
+    } else if (token.startsWith('type:') && _isKnownType(value)) {
+      type = value;
+    } else if (token.startsWith('has:')) {
+      switch (value) {
+        case '2fa':
+        case 'totp':
+          hasTotp = true;
+        case 'password':
+        case 'pass':
+          hasPassword = true;
+        case 'url':
+        case 'site':
+          hasUrl = true;
+        default:
+          terms.add(token);
+      }
+    } else if (token.startsWith('fav:') || token.startsWith('favorite:')) {
+      favorite = _parseBoolToken(value);
+    } else {
+      terms.add(token);
+    }
+  }
+
+  return _SearchSpec(
+    terms: terms,
+    tags: tags,
+    type: type,
+    hasTotp: hasTotp,
+    hasPassword: hasPassword,
+    hasUrl: hasUrl,
+    favorite: favorite,
+  );
+}
+
+String _tokenValue(String token) {
+  final index = token.indexOf(':');
+  if (index < 0 || index == token.length - 1) return '';
+  return token.substring(index + 1).trim();
+}
+
+bool _isKnownType(String value) {
+  return value == 'login' || value == 'note' || value == 'card';
+}
+
+bool? _parseBoolToken(String value) {
+  return switch (value) {
+    'true' || 'yes' || '1' || 'on' => true,
+    'false' || 'no' || '0' || 'off' => false,
+    _ => null,
+  };
 }
 
 List<EntryDto> sortEntries(List<EntryDto> entries, EntrySortMode mode) {

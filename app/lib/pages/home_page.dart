@@ -590,7 +590,7 @@ class _SearchAndSort extends StatelessWidget {
             child: TextField(
               onChanged: onQueryChanged,
               decoration: const InputDecoration(
-                hintText: '제목, 아이디, URL, 태그, 메모 검색',
+                hintText: '검색 또는 tag:work type:login has:2fa',
                 prefixIcon: Icon(Icons.search_rounded),
                 isDense: true,
               ),
