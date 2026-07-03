@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../entry_tools.dart';
 import '../src/rust/api/vault.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -39,17 +40,21 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('항목 삭제'),
-        content: Text('"${_entry?.title}"을(를) 삭제할까요?',
-            style: const TextStyle(color: G.sub)),
+        content: Text(
+          '"${_entry?.title}"을(를) 삭제할까요?',
+          style: const TextStyle(color: G.sub),
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('취소')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor: G.danger,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(0, 44)),
+              backgroundColor: G.danger,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(0, 44),
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('삭제'),
           ),
@@ -73,24 +78,37 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
     final e = _entry;
     if (e == null) return;
     await updateEntry(
-        entry: EntryDto(
-      id: e.id,
-      title: e.title,
-      username: e.username,
-      password: e.password,
-      url: e.url,
-      notes: e.notes,
-      totp: e.totp,
-      tags: e.tags,
-      favorite: !e.favorite,
-      createdAt: e.createdAt,
-      updatedAt: e.updatedAt,
-      itemType: e.itemType,
-      customFields: e.customFields,
-      passwordHistory: e.passwordHistory,
-      archived: e.archived,
-    ));
+      entry: EntryDto(
+        id: e.id,
+        title: e.title,
+        username: e.username,
+        password: e.password,
+        url: e.url,
+        notes: e.notes,
+        totp: e.totp,
+        tags: e.tags,
+        favorite: !e.favorite,
+        createdAt: e.createdAt,
+        updatedAt: e.updatedAt,
+        itemType: e.itemType,
+        customFields: e.customFields,
+        passwordHistory: e.passwordHistory,
+        archived: e.archived,
+      ),
+    );
     _reload();
+  }
+
+  Future<void> _copyLoginBundle() async {
+    final e = _entry;
+    if (e == null) return;
+    final lines = [
+      if (e.username.isNotEmpty) '아이디: ${e.username}',
+      if (e.password.isNotEmpty) '비밀번호: ${e.password}',
+      if (e.url.isNotEmpty) 'URL: ${e.url}',
+    ];
+    if (lines.isEmpty) return;
+    await copySensitive(context, '로그인 정보', lines.join('\n'));
   }
 
   @override
@@ -100,14 +118,26 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
       appBar: AppBar(
         title: e == null
             ? const SizedBox.shrink()
-            : Row(mainAxisSize: MainAxisSize.min, children: [
-                Monogram(seed: e.title, size: 32),
-                const SizedBox(width: 12),
-                Flexible(
-                    child:
-                        Text(e.title, overflow: TextOverflow.ellipsis)),
-              ]),
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Monogram(seed: e.title, size: 32),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(e.title, overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ),
         actions: [
+          if (e != null &&
+              (e.username.isNotEmpty ||
+                  e.password.isNotEmpty ||
+                  e.url.isNotEmpty))
+            IconButton(
+              icon: const Icon(Icons.copy_all_rounded),
+              tooltip: '로그인 정보 복사',
+              onPressed: _copyLoginBundle,
+            ),
           IconButton(
             icon: Icon(
               e?.favorite == true
@@ -119,9 +149,11 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
             onPressed: _toggleFavorite,
           ),
           IconButton(
-            icon: Icon(e?.archived == true
-                ? Icons.unarchive_rounded
-                : Icons.archive_outlined),
+            icon: Icon(
+              e?.archived == true
+                  ? Icons.unarchive_rounded
+                  : Icons.archive_outlined,
+            ),
             tooltip: e?.archived == true ? '보관 해제' : '보관함으로',
             onPressed: _toggleArchive,
           ),
@@ -138,7 +170,8 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
         label: const Text('편집'),
         onPressed: () async {
           final saved = await Navigator.of(context).push<bool>(
-              MaterialPageRoute(builder: (_) => EntryEditPage(entry: e)));
+            MaterialPageRoute(builder: (_) => EntryEditPage(entry: e)),
+          );
           if (saved == true) _reload();
         },
       ),
@@ -147,6 +180,7 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
               children: [
+                _typeCard(e),
                 if (e.username.isNotEmpty)
                   _fieldCard(
                     icon: Icons.person_rounded,
@@ -161,9 +195,11 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                     value: _showPassword ? e.password : '••••••••••••',
                     monospace: true,
                     extra: IconButton(
-                      icon: Icon(_showPassword
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded),
+                      icon: Icon(
+                        _showPassword
+                            ? Icons.visibility_off_rounded
+                            : Icons.visibility_rounded,
+                      ),
                       onPressed: () =>
                           setState(() => _showPassword = !_showPassword),
                     ),
@@ -187,9 +223,12 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                       spacing: 8,
                       runSpacing: 8,
                       children: e.tags
-                          .map((t) => Chip(
+                          .map(
+                            (t) => Chip(
                               label: Text('# $t'),
-                              visualDensity: VisualDensity.compact))
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          )
                           .toList(),
                     ),
                   ),
@@ -202,15 +241,20 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('메모',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: G.faint,
-                                    letterSpacing: 0.6)),
+                            const Text(
+                              '메모',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: G.faint,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
                             const SizedBox(height: 8),
-                            SelectableText(e.notes,
-                                style: const TextStyle(height: 1.6)),
+                            SelectableText(
+                              e.notes,
+                              style: const TextStyle(height: 1.6),
+                            ),
                           ],
                         ),
                       ),
@@ -237,9 +281,11 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
       monospace: f.hidden,
       extra: f.hidden
           ? IconButton(
-              icon: Icon(revealed
-                  ? Icons.visibility_off_rounded
-                  : Icons.visibility_rounded),
+              icon: Icon(
+                revealed
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
+              ),
               onPressed: () => setState(() {
                 if (revealed) {
                   _revealedFields.remove(idx);
@@ -253,6 +299,41 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
     );
   }
 
+  Widget _typeCard(EntryDto e) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Card(
+        child: ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: G.mint.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(_typeIcon(e.itemType), size: 20, color: G.mint),
+          ),
+          title: Text(
+            itemTypeLabel(e.itemType),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          subtitle: Text(
+            e.archived ? '보관된 항목' : '활성 항목',
+            style: const TextStyle(fontSize: 12, color: G.faint),
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _typeIcon(String itemType) {
+    return switch (itemType) {
+      'note' => Icons.sticky_note_2_rounded,
+      'card' => Icons.credit_card_rounded,
+      _ => Icons.badge_rounded,
+    };
+  }
+
   Widget _historyCard(EntryDto e) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -262,13 +343,19 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-                color: G.surfaceHi, borderRadius: BorderRadius.circular(12)),
+              color: G.surfaceHi,
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: const Icon(Icons.history_rounded, size: 20, color: G.sub),
           ),
-          title: const Text('비밀번호 이력',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-          subtitle: Text('이전 비밀번호 ${e.passwordHistory.length}개',
-              style: const TextStyle(fontSize: 12, color: G.faint)),
+          title: const Text(
+            '비밀번호 이력',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(
+            '이전 비밀번호 ${e.passwordHistory.length}개',
+            style: const TextStyle(fontSize: 12, color: G.faint),
+          ),
           trailing: const Icon(Icons.chevron_right_rounded, color: G.faint),
           onTap: () => _showHistory(e),
         ),
@@ -282,7 +369,8 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
       backgroundColor: G.surfaceHi,
       showDragHandle: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (ctx) => SafeArea(
         child: ListView(
           shrinkWrap: true,
@@ -290,26 +378,30 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
           children: [
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
-              child: Text('비밀번호 이력',
-                  style:
-                      TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+              child: Text(
+                '비밀번호 이력',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
             ),
-            ...e.passwordHistory.map((h) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    title: SelectableText(h.password,
-                        style: const TextStyle(
-                            fontSize: 14, letterSpacing: 0.5)),
-                    subtitle: Text(_fmt(h.changedAt),
-                        style:
-                            const TextStyle(fontSize: 12, color: G.faint)),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.copy_rounded, size: 20),
-                      onPressed: () =>
-                          copySensitive(ctx, '이전 비밀번호', h.password),
-                    ),
+            ...e.passwordHistory.map(
+              (h) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  title: SelectableText(
+                    h.password,
+                    style: const TextStyle(fontSize: 14, letterSpacing: 0.5),
                   ),
-                )),
+                  subtitle: Text(
+                    _fmt(h.changedAt),
+                    style: const TextStyle(fontSize: 12, color: G.faint),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.copy_rounded, size: 20),
+                    onPressed: () => copySensitive(ctx, '이전 비밀번호', h.password),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -326,27 +418,32 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              G.mint.withValues(alpha: 0.07),
-              G.surface,
-            ],
+            colors: [G.mint.withValues(alpha: 0.07), G.surface],
           ),
         ),
         padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Row(children: [
-            Icon(Icons.timer_rounded, size: 14, color: G.mint),
-            SizedBox(width: 6),
-            Text('일회용 코드 · TOTP',
-                style: TextStyle(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.timer_rounded, size: 14, color: G.mint),
+                SizedBox(width: 6),
+                Text(
+                  '일회용 코드 · TOTP',
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: G.mint,
-                    letterSpacing: 0.6)),
-          ]),
-          const SizedBox(height: 6),
-          TotpView(secret: e.totp),
-        ]),
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            TotpView(secret: e.totp),
+          ],
+        ),
       ),
     );
   }
@@ -369,43 +466,51 @@ class _EntryDetailPageState extends State<EntryDetailPage> {
       child: Card(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
-          child: Row(children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: G.surfaceHi,
-                borderRadius: BorderRadius.circular(12),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: G.surfaceHi,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 20, color: G.mint),
               ),
-              child: Icon(icon, size: 20, color: G.mint),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child:
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(label,
-                    style: const TextStyle(
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w700,
                         color: G.faint,
-                        letterSpacing: 0.6)),
-                const SizedBox(height: 3),
-                Text(
-                  value,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: monospace ? 0.8 : 0,
-                  ),
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      value,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: monospace ? 0.8 : 0,
+                      ),
+                    ),
+                  ],
                 ),
-              ]),
-            ),
-            if (extra != null) extra,
-            IconButton(
+              ),
+              if (extra != null) extra,
+              IconButton(
                 icon: const Icon(Icons.copy_rounded, size: 20),
-                onPressed: onCopy),
-          ]),
+                onPressed: onCopy,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../entry_tools.dart';
 import '../src/rust/api/vault.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -8,8 +9,8 @@ import 'generator_page.dart';
 /// 편집 가능한 커스텀 필드 상태.
 class _EditableField {
   _EditableField({String label = '', String value = '', this.hidden = false})
-      : label = TextEditingController(text: label),
-        value = TextEditingController(text: value);
+    : label = TextEditingController(text: label),
+      value = TextEditingController(text: value);
   final TextEditingController label;
   final TextEditingController value;
   bool hidden;
@@ -56,14 +57,23 @@ class _EntryEditPageState extends State<EntryEditPage> {
     _tags = TextEditingController(text: e?.tags.join(', ') ?? '');
     _itemType = e?.itemType ?? 'login';
     for (final f in e?.customFields ?? <CustomFieldDto>[]) {
-      _fields.add(_EditableField(
-          label: f.label, value: f.value, hidden: f.hidden));
+      _fields.add(
+        _EditableField(label: f.label, value: f.value, hidden: f.hidden),
+      );
     }
   }
 
   @override
   void dispose() {
-    for (final c in [_title, _username, _password, _url, _notes, _totp, _tags]) {
+    for (final c in [
+      _title,
+      _username,
+      _password,
+      _url,
+      _notes,
+      _totp,
+      _tags,
+    ]) {
       c.dispose();
     }
     for (final f in _fields) {
@@ -76,8 +86,14 @@ class _EntryEditPageState extends State<EntryEditPage> {
   bool get _isCard => _itemType == 'card';
 
   Future<void> _save() async {
-    if (_title.text.trim().isEmpty) {
-      setState(() => _error = '제목을 입력하세요');
+    final validation = validateEntryDraft(
+      title: _title.text,
+      itemType: _itemType,
+      url: _url.text,
+      totp: _totp.text,
+    );
+    if (!validation.isValid) {
+      setState(() => _error = validation.message);
       return;
     }
     setState(() {
@@ -91,20 +107,22 @@ class _EntryEditPageState extends State<EntryEditPage> {
         .toList();
     final customFields = _fields
         .where((f) => f.label.text.trim().isNotEmpty || f.value.text.isNotEmpty)
-        .map((f) => CustomFieldDto(
-              label: f.label.text.trim(),
-              value: f.value.text,
-              hidden: f.hidden,
-            ))
+        .map(
+          (f) => CustomFieldDto(
+            label: f.label.text.trim(),
+            value: f.value.text,
+            hidden: f.hidden,
+          ),
+        )
         .toList();
     final dto = EntryDto(
       id: widget.entry?.id ?? '',
       title: _title.text.trim(),
       username: _username.text.trim(),
       password: _password.text,
-      url: _url.text.trim(),
+      url: _itemType == 'login' ? normalizeUrl(_url.text) : '',
       notes: _notes.text,
-      totp: _totp.text.trim(),
+      totp: _itemType == 'login' ? _totp.text.trim() : '',
       tags: tags,
       favorite: widget.entry?.favorite ?? false,
       createdAt: widget.entry?.createdAt ?? 0,
@@ -131,7 +149,8 @@ class _EntryEditPageState extends State<EntryEditPage> {
 
   Future<void> _generate() async {
     final generated = await Navigator.of(context).push<String>(
-        MaterialPageRoute(builder: (_) => const GeneratorPage(pickMode: true)));
+      MaterialPageRoute(builder: (_) => const GeneratorPage(pickMode: true)),
+    );
     if (generated != null && generated.isNotEmpty) {
       setState(() {
         _password.text = generated;
@@ -158,17 +177,15 @@ class _EntryEditPageState extends State<EntryEditPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (isNew) ...[
-            _typeSelector(),
-            const SizedBox(height: 16),
-          ],
+          if (isNew) ...[_typeSelector(), const SizedBox(height: 16)],
           TextField(
             controller: _title,
             autofocus: isNew,
             textInputAction: TextInputAction.next,
             decoration: InputDecoration(
-                labelText: '제목 *',
-                prefixIcon: Icon(_typeIcon(_itemType))),
+              labelText: '제목 *',
+              prefixIcon: Icon(_typeIcon(_itemType)),
+            ),
           ),
           const SizedBox(height: 12),
           if (_isLogin) ...[
@@ -176,9 +193,11 @@ class _EntryEditPageState extends State<EntryEditPage> {
               controller: _username,
               textInputAction: TextInputAction.next,
               decoration: InputDecoration(
-                  labelText: _isCard ? '카드 소유자 / 번호' : '아이디 / 이메일',
-                  prefixIcon: Icon(
-                      _isCard ? Icons.credit_card_rounded : Icons.person_rounded)),
+                labelText: _isCard ? '카드 소유자 / 번호' : '아이디 / 이메일',
+                prefixIcon: Icon(
+                  _isCard ? Icons.credit_card_rounded : Icons.person_rounded,
+                ),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -188,20 +207,25 @@ class _EntryEditPageState extends State<EntryEditPage> {
               decoration: InputDecoration(
                 labelText: _isCard ? 'CVC / PIN' : '비밀번호',
                 prefixIcon: const Icon(Icons.key_rounded),
-                suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
-                  if (!_isCard)
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!_isCard)
+                      IconButton(
+                        tooltip: '생성기',
+                        icon: const Icon(Icons.auto_awesome_rounded),
+                        onPressed: _generate,
+                      ),
                     IconButton(
-                      tooltip: '생성기',
-                      icon: const Icon(Icons.auto_awesome_rounded),
-                      onPressed: _generate,
+                      icon: Icon(
+                        _obscure
+                            ? Icons.visibility_rounded
+                            : Icons.visibility_off_rounded,
+                      ),
+                      onPressed: () => setState(() => _obscure = !_obscure),
                     ),
-                  IconButton(
-                    icon: Icon(_obscure
-                        ? Icons.visibility_rounded
-                        : Icons.visibility_off_rounded),
-                    onPressed: () => setState(() => _obscure = !_obscure),
-                  ),
-                ]),
+                  ],
+                ),
               ),
             ),
             if (!_isCard) ...[
@@ -216,7 +240,9 @@ class _EntryEditPageState extends State<EntryEditPage> {
               textInputAction: TextInputAction.next,
               keyboardType: TextInputType.url,
               decoration: const InputDecoration(
-                  labelText: 'URL', prefixIcon: Icon(Icons.link_rounded)),
+                labelText: 'URL',
+                prefixIcon: Icon(Icons.link_rounded),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -243,7 +269,9 @@ class _EntryEditPageState extends State<EntryEditPage> {
             controller: _notes,
             maxLines: _itemType == 'note' ? 10 : 4,
             decoration: const InputDecoration(
-                labelText: '메모', alignLabelWithHint: true),
+              labelText: '메모',
+              alignLabelWithHint: true,
+            ),
           ),
           if (_error != null) ...[
             const SizedBox(height: 12),
@@ -261,10 +289,10 @@ class _EntryEditPageState extends State<EntryEditPage> {
   }
 
   IconData _typeIcon(String t) => switch (t) {
-        'note' => Icons.sticky_note_2_rounded,
-        'card' => Icons.credit_card_rounded,
-        _ => Icons.badge_rounded,
-      };
+    'note' => Icons.sticky_note_2_rounded,
+    'card' => Icons.credit_card_rounded,
+    _ => Icons.badge_rounded,
+  };
 
   Widget _typeSelector() {
     Widget tab(String type, IconData icon, String label) {
@@ -280,83 +308,102 @@ class _EntryEditPageState extends State<EntryEditPage> {
               color: active ? G.mint.withValues(alpha: 0.12) : G.surface,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                  color: active ? G.mint : G.border,
-                  width: active ? 1.4 : 1),
+                color: active ? G.mint : G.border,
+                width: active ? 1.4 : 1,
+              ),
             ),
-            child: Column(children: [
-              Icon(icon, color: active ? G.mint : G.sub, size: 22),
-              const SizedBox(height: 6),
-              Text(label,
+            child: Column(
+              children: [
+                Icon(icon, color: active ? G.mint : G.sub, size: 22),
+                const SizedBox(height: 6),
+                Text(
+                  label,
                   style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: active ? G.mint : G.sub)),
-            ]),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: active ? G.mint : G.sub,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return Row(children: [
-      tab('login', Icons.badge_rounded, '로그인'),
-      tab('note', Icons.sticky_note_2_rounded, '보안 메모'),
-      tab('card', Icons.credit_card_rounded, '카드'),
-    ]);
+    return Row(
+      children: [
+        tab('login', Icons.badge_rounded, '로그인'),
+        tab('note', Icons.sticky_note_2_rounded, '보안 메모'),
+        tab('card', Icons.credit_card_rounded, '카드'),
+      ],
+    );
   }
 
   Widget _customFieldsSection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      for (var i = 0; i < _fields.length; i++)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Row(children: [
-            Expanded(
-              flex: 2,
-              child: TextField(
-                controller: _fields[i].label,
-                decoration: const InputDecoration(
-                    labelText: '필드명', isDense: true),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: TextField(
-                controller: _fields[i].value,
-                obscureText: _fields[i].hidden,
-                decoration: InputDecoration(
-                  labelText: '값',
-                  isDense: true,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                        _fields[i].hidden
-                            ? Icons.visibility_off_rounded
-                            : Icons.visibility_rounded,
-                        size: 18),
-                    onPressed: () =>
-                        setState(() => _fields[i].hidden = !_fields[i].hidden),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < _fields.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _fields[i].label,
+                    decoration: const InputDecoration(
+                      labelText: '필드명',
+                      isDense: true,
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _fields[i].value,
+                    obscureText: _fields[i].hidden,
+                    decoration: InputDecoration(
+                      labelText: '값',
+                      isDense: true,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _fields[i].hidden
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
+                          size: 18,
+                        ),
+                        onPressed: () => setState(
+                          () => _fields[i].hidden = !_fields[i].hidden,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(
+                    Icons.remove_circle_outline_rounded,
+                    color: G.faint,
+                  ),
+                  onPressed: () => setState(() {
+                    _fields[i].dispose();
+                    _fields.removeAt(i);
+                  }),
+                ),
+              ],
             ),
-            IconButton(
-              icon: const Icon(Icons.remove_circle_outline_rounded,
-                  color: G.faint),
-              onPressed: () => setState(() {
-                _fields[i].dispose();
-                _fields.removeAt(i);
-              }),
-            ),
-          ]),
+          ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => setState(() => _fields.add(_EditableField())),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('필드 추가'),
+          ),
         ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: () => setState(() => _fields.add(_EditableField())),
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('필드 추가'),
-        ),
-      ),
-    ]);
+      ],
+    );
   }
 }
