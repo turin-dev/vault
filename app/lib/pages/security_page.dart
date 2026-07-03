@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../security_tools.dart';
 import '../src/rust/api/audit.dart';
+import '../src/rust/api/vault.dart';
 import '../theme.dart';
 import 'entry_detail_page.dart';
 
@@ -15,6 +17,7 @@ class SecurityPage extends StatefulWidget {
 class _SecurityPageState extends State<SecurityPage> {
   AuditReportDto? _report;
   BreachReportDto? _breaches;
+  List<EntryDto> _entries = [];
   bool _loading = true;
   bool _checkingBreaches = false;
   String? _breachError;
@@ -28,22 +31,34 @@ class _SecurityPageState extends State<SecurityPage> {
   Future<void> _load() async {
     try {
       final r = await auditVault();
-      if (mounted) setState(() { _report = r; _loading = false; });
+      final entries = await listEntries();
+      if (mounted) {
+        setState(() {
+          _report = r;
+          _entries = entries;
+          _loading = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _checkBreaches() async {
-    setState(() { _checkingBreaches = true; _breachError = null; });
+    setState(() {
+      _checkingBreaches = true;
+      _breachError = null;
+    });
     try {
       final b = await checkBreaches();
       if (mounted) setState(() => _breaches = b);
     } catch (e) {
       if (mounted) {
-        setState(() => _breachError = '$e'
-            .replaceFirst('AnyhowException(', '')
-            .replaceFirst(RegExp(r'\)$'), ''));
+        setState(
+          () => _breachError = '$e'
+              .replaceFirst('AnyhowException(', '')
+              .replaceFirst(RegExp(r'\)$'), ''),
+        );
       }
     } finally {
       if (mounted) setState(() => _checkingBreaches = false);
@@ -70,54 +85,60 @@ class _SecurityPageState extends State<SecurityPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : r == null
-              ? const Center(child: Text('점검할 수 없습니다', style: TextStyle(color: G.sub)))
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                  children: [
-                    _scoreCard(r),
-                    const SizedBox(height: 20),
-                    _breachSection(),
-                    const SizedBox(height: 8),
-                    if (r.reused.isNotEmpty)
-                      _category(
-                        icon: Icons.content_copy_rounded,
-                        color: G.danger,
-                        title: '재사용된 비밀번호',
-                        count: r.reused.fold<int>(0, (s, g) => s + g.entries.length),
-                        subtitle: '${r.reused.length}개 그룹에서 같은 비밀번호를 여러 곳에 사용',
-                        refs: r.reused.expand((g) => g.entries).toList(),
-                      ),
-                    if (r.weak.isNotEmpty)
-                      _category(
-                        icon: Icons.warning_amber_rounded,
-                        color: G.amber,
-                        title: '취약한 비밀번호',
-                        count: r.weak.length,
-                        subtitle: '추측하기 쉬운 비밀번호',
-                        refs: r.weak,
-                      ),
-                    if (r.stale.isNotEmpty)
-                      _category(
-                        icon: Icons.history_rounded,
-                        color: G.sub,
-                        title: '오래된 비밀번호',
-                        count: r.stale.length,
-                        subtitle: '180일 이상 변경하지 않음',
-                        refs: r.stale,
-                      ),
-                    if (r.empty.isNotEmpty)
-                      _category(
-                        icon: Icons.password_rounded,
-                        color: G.faint,
-                        title: '비밀번호 없음',
-                        count: r.empty.length,
-                        subtitle: '비밀번호가 비어 있는 항목',
-                        refs: r.empty,
-                      ),
-                    if (r.reused.isEmpty && r.weak.isEmpty && r.stale.isEmpty)
-                      _allClear(),
-                  ],
-                ),
+          ? const Center(
+              child: Text('점검할 수 없습니다', style: TextStyle(color: G.sub)),
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              children: [
+                _scoreCard(r),
+                _actionPlan(r),
+                const SizedBox(height: 20),
+                _breachSection(),
+                const SizedBox(height: 8),
+                if (r.reused.isNotEmpty)
+                  _category(
+                    icon: Icons.content_copy_rounded,
+                    color: G.danger,
+                    title: '재사용된 비밀번호',
+                    count: r.reused.fold<int>(
+                      0,
+                      (s, g) => s + g.entries.length,
+                    ),
+                    subtitle: '${r.reused.length}개 그룹에서 같은 비밀번호를 여러 곳에 사용',
+                    refs: r.reused.expand((g) => g.entries).toList(),
+                  ),
+                if (r.weak.isNotEmpty)
+                  _category(
+                    icon: Icons.warning_amber_rounded,
+                    color: G.amber,
+                    title: '취약한 비밀번호',
+                    count: r.weak.length,
+                    subtitle: '추측하기 쉬운 비밀번호',
+                    refs: r.weak,
+                  ),
+                if (r.stale.isNotEmpty)
+                  _category(
+                    icon: Icons.history_rounded,
+                    color: G.sub,
+                    title: '오래된 비밀번호',
+                    count: r.stale.length,
+                    subtitle: '180일 이상 변경하지 않음',
+                    refs: r.stale,
+                  ),
+                if (r.empty.isNotEmpty)
+                  _category(
+                    icon: Icons.password_rounded,
+                    color: G.faint,
+                    title: '비밀번호 없음',
+                    count: r.empty.length,
+                    subtitle: '비밀번호가 비어 있는 항목',
+                    refs: r.empty,
+                  ),
+                if (r.reused.isEmpty && r.weak.isEmpty && r.stale.isEmpty)
+                  _allClear(),
+              ],
+            ),
     );
   }
 
@@ -135,51 +156,221 @@ class _SecurityPageState extends State<SecurityPage> {
           colors: [color.withValues(alpha: 0.09), G.surface],
         ),
       ),
-      child: Row(children: [
-        SizedBox(
-          width: 96,
-          height: 96,
-          child: Stack(alignment: Alignment.center, children: [
-            SizedBox(
-              width: 96,
-              height: 96,
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(end: score / 100),
-                duration: const Duration(milliseconds: 700),
-                curve: Curves.easeOutCubic,
-                builder: (_, v, __) => CircularProgressIndicator(
-                  value: v,
-                  strokeWidth: 8,
-                  strokeCap: StrokeCap.round,
-                  backgroundColor: G.surfaceHi,
-                  color: color,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 96,
+            height: 96,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 96,
+                  height: 96,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(end: score / 100),
+                    duration: const Duration(milliseconds: 700),
+                    curve: Curves.easeOutCubic,
+                    builder: (_, v, __) => CircularProgressIndicator(
+                      value: v,
+                      strokeWidth: 8,
+                      strokeCap: StrokeCap.round,
+                      backgroundColor: G.surfaceHi,
+                      color: color,
+                    ),
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$score',
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                      ),
+                    ),
+                    const Text(
+                      '/100',
+                      style: TextStyle(fontSize: 11, color: G.faint),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 22),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _scoreLabel(score),
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${r.withPassword}개 항목 분석 완료',
+                  style: const TextStyle(fontSize: 13, color: G.sub),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionPlan(AuditReportDto r) {
+    final actions = buildSecurityActionPlan(
+      report: r,
+      entries: _entries,
+      breaches: _breaches,
+    );
+    if (actions.isEmpty) return const SizedBox(height: 12);
+    return Container(
+      margin: const EdgeInsets.only(top: 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: G.surface,
+        border: Border.all(color: G.border),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: true,
+          shape: const Border(),
+          collapsedShape: const Border(),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _severityColor(
+                actions.first.severity,
+              ).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.task_alt_rounded,
+              color: _severityColor(actions.first.severity),
+              size: 22,
+            ),
+          ),
+          title: Row(
+            children: [
+              const Text(
+                '우선 조치',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: G.mint.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${actions.length}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: G.mint,
+                  ),
                 ),
               ),
+            ],
+          ),
+          subtitle: const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Text(
+              '침해, 재사용, 취약, 2FA 누락 순으로 정렬',
+              style: TextStyle(fontSize: 12, color: G.sub),
             ),
-            Column(mainAxisSize: MainAxisSize.min, children: [
-              Text('$score',
-                  style: TextStyle(
-                      fontSize: 30, fontWeight: FontWeight.w800, color: color)),
-              const Text('/100',
-                  style: TextStyle(fontSize: 11, color: G.faint)),
-            ]),
-          ]),
+          ),
+          children: actions.take(8).map(_actionTile).toList(),
         ),
-        const SizedBox(width: 22),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(_scoreLabel(score),
-                style: TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.w800, color: color)),
-            const SizedBox(height: 6),
-            Text(
-              '${r.withPassword}개 항목 분석 완료',
-              style: const TextStyle(fontSize: 13, color: G.sub),
-            ),
-          ]),
-        ),
-      ]),
+      ),
     );
+  }
+
+  Widget _actionTile(SecurityActionItem action) {
+    final color = _severityColor(action.severity);
+    return ListTile(
+      contentPadding: const EdgeInsets.only(left: 16, right: 8),
+      dense: true,
+      leading: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(_actionIcon(action.kind), size: 18, color: color),
+      ),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              action.title,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _severityLabel(action.severity),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+      subtitle: Text(
+        action.detail,
+        style: const TextStyle(fontSize: 12, color: G.faint),
+      ),
+      trailing: const Icon(Icons.chevron_right_rounded, color: G.faint),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => EntryDetailPage(id: action.id))),
+    );
+  }
+
+  Color _severityColor(SecurityActionSeverity severity) {
+    return switch (severity) {
+      SecurityActionSeverity.critical => G.danger,
+      SecurityActionSeverity.high => G.danger,
+      SecurityActionSeverity.medium => G.amber,
+      SecurityActionSeverity.low => G.sub,
+    };
+  }
+
+  String _severityLabel(SecurityActionSeverity severity) {
+    return switch (severity) {
+      SecurityActionSeverity.critical => '긴급',
+      SecurityActionSeverity.high => '높음',
+      SecurityActionSeverity.medium => '중간',
+      SecurityActionSeverity.low => '낮음',
+    };
+  }
+
+  IconData _actionIcon(SecurityActionKind kind) {
+    return switch (kind) {
+      SecurityActionKind.breach => Icons.travel_explore_rounded,
+      SecurityActionKind.reused => Icons.content_copy_rounded,
+      SecurityActionKind.weak => Icons.warning_amber_rounded,
+      SecurityActionKind.missing2fa => Icons.timer_rounded,
+      SecurityActionKind.stale => Icons.history_rounded,
+      SecurityActionKind.empty => Icons.password_rounded,
+    };
   }
 
   Widget _breachSection() {
@@ -191,62 +382,83 @@ class _SecurityPageState extends State<SecurityPage> {
         borderRadius: BorderRadius.circular(18),
         color: G.surface,
         border: Border.all(
-            color: (b != null && b.hits.isNotEmpty)
-                ? G.danger.withValues(alpha: 0.35)
-                : G.border),
+          color: (b != null && b.hits.isNotEmpty)
+              ? G.danger.withValues(alpha: 0.35)
+              : G.border,
+        ),
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(Icons.travel_explore_rounded,
-              size: 22,
-              color: (b != null && b.hits.isNotEmpty) ? G.danger : G.mint),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text('데이터 유출 검사',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.travel_explore_rounded,
+                size: 22,
+                color: (b != null && b.hits.isNotEmpty) ? G.danger : G.mint,
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  '데이터 유출 검사',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (b == null)
+                TextButton(
+                  onPressed: _checkingBreaches ? null : _checkBreaches,
+                  child: _checkingBreaches
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('검사'),
+                ),
+            ],
           ),
-          if (b == null)
-            TextButton(
-              onPressed: _checkingBreaches ? null : _checkBreaches,
-              child: _checkingBreaches
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('검사'),
+          const SizedBox(height: 6),
+          if (b == null && _breachError == null)
+            const Text(
+              '알려진 유출 데이터베이스와 대조합니다. 비밀번호는 전송되지 않으며,\n'
+              'SHA-1 해시의 앞 5자만 보내는 k-익명성 방식을 사용합니다.',
+              style: TextStyle(fontSize: 12, color: G.faint, height: 1.5),
             ),
-        ]),
-        const SizedBox(height: 6),
-        if (b == null && _breachError == null)
-          const Text(
-            '알려진 유출 데이터베이스와 대조합니다. 비밀번호는 전송되지 않으며,\n'
-            'SHA-1 해시의 앞 5자만 보내는 k-익명성 방식을 사용합니다.',
-            style: TextStyle(fontSize: 12, color: G.faint, height: 1.5),
-          ),
-        if (_breachError != null)
-          Text(_breachError!,
-              style: const TextStyle(fontSize: 12.5, color: G.danger)),
-        if (b != null && b.hits.isEmpty)
-          Row(children: const [
-            Icon(Icons.verified_user_rounded, size: 18, color: G.mint),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text('유출된 비밀번호가 없습니다',
-                  style: TextStyle(fontSize: 13, color: G.mint)),
+          if (_breachError != null)
+            Text(
+              _breachError!,
+              style: const TextStyle(fontSize: 12.5, color: G.danger),
             ),
-          ]),
-        if (b != null && b.hits.isNotEmpty) ...[
-          Text('${b.hits.length}개 항목의 비밀번호가 유출 데이터에서 발견됨',
-              style: const TextStyle(fontSize: 13, color: G.danger)),
-          const SizedBox(height: 10),
-          ...b.hits.map((h) => _refTile(
+          if (b != null && b.hits.isEmpty)
+            Row(
+              children: const [
+                Icon(Icons.verified_user_rounded, size: 18, color: G.mint),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '유출된 비밀번호가 없습니다',
+                    style: TextStyle(fontSize: 13, color: G.mint),
+                  ),
+                ),
+              ],
+            ),
+          if (b != null && b.hits.isNotEmpty) ...[
+            Text(
+              '${b.hits.length}개 항목의 비밀번호가 유출 데이터에서 발견됨',
+              style: const TextStyle(fontSize: 13, color: G.danger),
+            ),
+            const SizedBox(height: 10),
+            ...b.hits.map(
+              (h) => _refTile(
                 h.id,
                 h.title,
                 '${_fmtCount(h.count)}회 유출 — 즉시 변경 권장',
                 G.danger,
-              )),
+              ),
+            ),
+          ],
         ],
-      ]),
+      ),
     );
   }
 
@@ -287,26 +499,39 @@ class _SecurityPageState extends State<SecurityPage> {
             ),
             child: Icon(icon, color: color, size: 22),
           ),
-          title: Row(children: [
-            Text(title,
+          title: Row(
+            children: [
+              Text(
+                title,
                 style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w700)),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(999),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-              child: Text('$count',
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$count',
                   style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w800, color: color)),
-            ),
-          ]),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+              ),
+            ],
+          ),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Text(subtitle,
-                style: const TextStyle(fontSize: 12, color: G.sub)),
+            child: Text(
+              subtitle,
+              style: const TextStyle(fontSize: 12, color: G.sub),
+            ),
           ),
           children: refs
               .take(50)
@@ -327,37 +552,55 @@ class _SecurityPageState extends State<SecurityPage> {
         margin: const EdgeInsets.only(left: 4),
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
-      title: Text(title,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-      subtitle: Text(detail, style: const TextStyle(fontSize: 12, color: G.faint)),
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+      subtitle: Text(
+        detail,
+        style: const TextStyle(fontSize: 12, color: G.faint),
+      ),
       trailing: const Icon(Icons.chevron_right_rounded, color: G.faint),
-      onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => EntryDetailPage(id: id))),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => EntryDetailPage(id: id))),
     );
   }
 
   Widget _allClear() {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 20),
-      child: Column(children: [
-        Container(
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            color: G.mint.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(24),
+      child: Column(
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: G.mint.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Icon(
+              Icons.verified_user_rounded,
+              size: 36,
+              color: G.mint,
+            ),
           ),
-          child: const Icon(Icons.verified_user_rounded,
-              size: 36, color: G.mint),
-        ),
-        const SizedBox(height: 16),
-        const Text('모든 비밀번호가 안전합니다',
+          const SizedBox(height: 16),
+          const Text(
+            '모든 비밀번호가 안전합니다',
             style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w700, color: G.mint)),
-        const SizedBox(height: 6),
-        const Text('취약하거나 재사용된 비밀번호가 없습니다',
-            style: TextStyle(fontSize: 13, color: G.sub)),
-      ]),
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: G.mint,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            '취약하거나 재사용된 비밀번호가 없습니다',
+            style: TextStyle(fontSize: 13, color: G.sub),
+          ),
+        ],
+      ),
     );
   }
 }
