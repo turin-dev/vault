@@ -412,6 +412,7 @@ class _SecurityPageState extends State<SecurityPage> {
       SecurityActionKind.breach => Icons.travel_explore_rounded,
       SecurityActionKind.reused => Icons.content_copy_rounded,
       SecurityActionKind.weak => Icons.warning_amber_rounded,
+      SecurityActionKind.suspiciousUrl => Icons.link_off_rounded,
       SecurityActionKind.missing2fa => Icons.timer_rounded,
       SecurityActionKind.stale => Icons.history_rounded,
       SecurityActionKind.empty => Icons.password_rounded,

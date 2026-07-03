@@ -2,7 +2,15 @@ import 'entry_tools.dart';
 import 'src/rust/api/audit.dart';
 import 'src/rust/api/vault.dart';
 
-enum SecurityActionKind { breach, reused, weak, missing2fa, stale, empty }
+enum SecurityActionKind {
+  breach,
+  reused,
+  weak,
+  suspiciousUrl,
+  missing2fa,
+  stale,
+  empty,
+}
 
 enum SecurityActionSeverity { critical, high, medium, low }
 
@@ -79,6 +87,16 @@ List<SecurityActionItem> buildSecurityActionPlan({
         severity: SecurityActionSeverity.high,
         priority: 20,
       ),
+    for (final entry in entries)
+      if (_urlRisk(entry) case final risk?)
+        _action(
+          id: entry.id,
+          title: entry.title,
+          detail: risk,
+          kind: SecurityActionKind.suspiciousUrl,
+          severity: SecurityActionSeverity.high,
+          priority: 22,
+        ),
     for (final entry in entries)
       if (_twoFactorService(entry.url) case final service?)
         if (_needsTwoFactor(entry))
@@ -162,6 +180,31 @@ bool _needsTwoFactor(EntryDto entry) {
       !entry.archived &&
       entry.password.isNotEmpty &&
       entry.totp.isEmpty;
+}
+
+String? _urlRisk(EntryDto entry) {
+  if (entry.itemType != 'login' || entry.archived || entry.url.trim().isEmpty) {
+    return null;
+  }
+  final uri = Uri.tryParse(normalizeUrl(entry.url));
+  if (uri == null || uri.host.isEmpty) return 'URL 형식을 확인하세요.';
+  final host = uri.host.toLowerCase();
+  if (uri.scheme != 'https') return 'HTTPS가 아닌 URL입니다.';
+  if (uri.userInfo.isNotEmpty) return 'URL에 사용자 정보가 포함되어 있습니다.';
+  if (_isIpAddress(host)) return '도메인 대신 IP 주소를 사용합니다.';
+  if (host == 'localhost' || host.endsWith('.local')) {
+    return '로컬 주소는 자동 채우기 전에 다시 확인하세요.';
+  }
+  if (host.startsWith('xn--') || host.contains('.xn--')) {
+    return '국제화 도메인(punycode)입니다. 피싱 여부를 확인하세요.';
+  }
+  return null;
+}
+
+bool _isIpAddress(String host) {
+  final ipv4 = RegExp(r'^(\d{1,3}\.){3}\d{1,3}$');
+  if (ipv4.hasMatch(host)) return true;
+  return host.contains(':') && RegExp(r'^[0-9a-f:]+$').hasMatch(host);
 }
 
 bool _isTravelSafe(EntryDto entry) {

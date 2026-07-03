@@ -40,6 +40,12 @@ void main() {
             url: 'https://github.com',
             password: 'secret',
           ),
+          _entry(
+            id: 'http',
+            title: 'Legacy',
+            url: 'http://legacy.example.com',
+            password: 'secret',
+          ),
         ],
         breaches: BreachReportDto(
           checked: BigInt.from(1),
@@ -57,6 +63,7 @@ void main() {
         SecurityActionKind.breach,
         SecurityActionKind.reused,
         SecurityActionKind.weak,
+        SecurityActionKind.suspiciousUrl,
         SecurityActionKind.missing2fa,
         SecurityActionKind.stale,
         SecurityActionKind.empty,
@@ -65,6 +72,45 @@ void main() {
       expect(actions.first.detail, contains('1K회'));
     },
   );
+
+  test('flags suspicious login urls', () {
+    final actions = buildSecurityActionPlan(
+      report: _emptyReport(),
+      entries: [
+        _entry(
+          id: 'http',
+          title: 'HTTP',
+          url: 'http://example.com',
+          password: 'secret',
+        ),
+        _entry(
+          id: 'ip',
+          title: 'IP',
+          url: 'https://192.168.0.10',
+          password: 'secret',
+        ),
+        _entry(
+          id: 'punycode',
+          title: 'Punycode',
+          url: 'https://xn--pple-43d.com',
+          password: 'secret',
+        ),
+        _entry(
+          id: 'safe',
+          title: 'Safe',
+          url: 'https://example.com',
+          password: 'secret',
+        ),
+      ],
+    );
+
+    final suspicious = actions
+        .where((action) => action.kind == SecurityActionKind.suspiciousUrl)
+        .toList();
+
+    expect(suspicious.map((action) => action.id), ['http', 'ip', 'punycode']);
+    expect(suspicious.first.detail, contains('HTTPS'));
+  });
 
   test('recommends 2fa for supported login domains only', () {
     final actions = buildSecurityActionPlan(
