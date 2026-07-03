@@ -1,10 +1,15 @@
 name: build
 
 on:
+  pull_request:
+    branches: [master]
   push:
-    branches: [main, master]
-    tags: ['v*']
+    branches: [master]
+    tags: ["v*"]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test-core:
@@ -14,49 +19,93 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test -p geumgo-core -p geumgo-server
 
+  app-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Install Flutter dependencies
+        working-directory: app
+        run: flutter pub get
+      - name: Analyze app sources
+        working-directory: app
+        run: dart analyze lib test
+      - name: Run app tests
+        working-directory: app
+        run: flutter test
+
   windows:
     runs-on: windows-latest
-    needs: test-core
+    needs: [test-core, app-check]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - name: Build Windows desktop
         working-directory: app
         run: flutter build windows --release
-      - name: Package
+      - name: Package Windows artifact
         shell: pwsh
         run: Compress-Archive -Path app/build/windows/x64/runner/Release/* -DestinationPath geumgo-windows-x64.zip
       - uses: actions/upload-artifact@v4
         with:
           name: geumgo-windows-x64
           path: geumgo-windows-x64.zip
+          retention-days: 14
 
   linux:
     runs-on: ubuntu-latest
-    needs: test-core
+    needs: [test-core, app-check]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - name: Install Linux desktop build dependencies
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - name: Build Linux desktop
         working-directory: app
         run: flutter build linux --release
-      - name: Package
+      - name: Package Linux artifact
         run: tar czf geumgo-linux-x64.tar.gz -C app/build/linux/x64/release/bundle .
       - uses: actions/upload-artifact@v4
         with:
           name: geumgo-linux-x64
           path: geumgo-linux-x64.tar.gz
+          retention-days: 14
+
+  macos:
+    runs-on: macos-latest
+    needs: [test-core, app-check]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Build macOS desktop
+        working-directory: app
+        run: flutter build macos --release
+      - name: Package macOS artifact
+        run: ditto -c -k --sequesterRsrc --keepParent app/build/macos/Build/Products/Release/app.app geumgo-macos.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: geumgo-macos
+          path: geumgo-macos.zip
+          retention-days: 14
 
   android:
     runs-on: ubuntu-latest
-    needs: test-core
+    needs: [test-core, app-check]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -65,21 +114,37 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-      - name: Build APK
+          cache: true
+      - name: Build Android APK
         working-directory: app
         run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
           name: geumgo-android
           path: app/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+  ios-config:
+    runs-on: macos-latest
+    needs: [test-core, app-check]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Validate iOS build configuration
+        working-directory: app
+        run: flutter build ios --release --no-codesign --config-only
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, linux, android]
+    needs: [windows, linux, macos, android, ios-config]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -92,4 +157,5 @@ jobs:
           files: |
             geumgo-windows-x64.zip
             geumgo-linux-x64.tar.gz
+            geumgo-macos.zip
             app-release.apk
