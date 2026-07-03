@@ -44,28 +44,42 @@ class _GeumgoAppState extends State<GeumgoApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  Future<void> _lockNow() async {
+  void _goToUnlock() {
+    navigatorKey.currentState?.pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const UnlockPage()),
+      (_) => false,
+    );
+  }
+
+  /// 화면만 잠근다 — 볼트 키는 메모리에 유지해 자동완성이 계속 동작하게 한다.
+  /// (업계 표준: 백그라운드에서 키를 즉시 파기하면 자동완성이 불가능)
+  Future<void> _lockUiOnly() async {
+    if (await isUnlocked()) _goToUnlock();
+  }
+
+  /// 완전 잠금 — 볼트 키를 메모리에서 파기(zeroize).
+  Future<void> _lockFully() async {
     if (await isUnlocked()) {
       await lockVault();
-      navigatorKey.currentState?.pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const UnlockPage()),
-        (_) => false,
-      );
+      _goToUnlock();
     }
   }
 
-  /// 입력이 없으면 5분 후 자동 잠금.
+  /// 입력이 없으면 5분 후 완전 잠금.
   void _resetIdleTimer() {
     _idleTimer?.cancel();
-    _idleTimer = Timer(_idleLimit, _lockNow);
+    _idleTimer = Timer(_idleLimit, _lockFully);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // 백그라운드로 가면 즉시 잠금 (모바일 앱 전환, 데스크톱 최소화)
+    // 백그라운드 진입: UI만 잠근다. 키는 유지되어 다른 앱에서 자동완성이 동작한다.
+    // 완전 잠금은 유휴 타이머(5분) 또는 명시적 잠금 버튼이 담당.
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
-      _lockNow();
+      _lockUiOnly();
+    } else if (state == AppLifecycleState.detached) {
+      _lockFully();
     }
   }
 

@@ -47,7 +47,15 @@ geumgo/
 - **보안 대시보드**: 취약·재사용·오래된 비밀번호 점검 + HIBP 유출 검사(k-익명성)
 - 보관함(아카이브) + 복원
 - 가져오기/내보내기 (범용 CSV — Bitwarden/1Password/Chrome/KeePass 자동 인식)
+- **Android 자동완성** (AutofillService): 다른 앱·브라우저 로그인 화면에서 아이디/비밀번호 자동 채움
 - 검색, Material 3 다크 UI (Pretendard)
+
+### 자동완성 동작 방식
+- Kotlin `GeumgoAutofillService`가 Rust 코어(`librust_lib_app.so`)의 JNI 함수를 호출한다.
+  Flutter 엔진과 **같은 프로세스·같은 .so**라 잠금 해제된 in-memory 볼트를 공유 — 자동완성용 별도 평문 저장 없음(zero-knowledge 유지).
+- 볼트가 잠겨 있으면 "잠금 해제" 항목을 띄우고, 해제 상태면 요청 도메인/앱에 맞는 자격증명을 제시.
+- 이를 위해 잠금 정책을 조정: 백그라운드 진입 시 **UI만 잠그고 키는 메모리에 유지**(유휴 5분 또는 명시적 잠금 시 완전 파기). 업계 표준(Bitwarden/1Password) 모델.
+- 활성화: 안드로이드 설정 → 일반 → 자동완성 서비스 → "금고" 선택.
 
 ## 빌드
 

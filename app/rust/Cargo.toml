@@ -17,5 +17,8 @@ base64 = "0.22"
 sha1 = "0.10"
 hex = "0.4"
 
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
